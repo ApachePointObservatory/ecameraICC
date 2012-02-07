@@ -1,0 +1,4 @@
+#!/bin/sh
+cd /opt/apogee/src/ecamera
+source ENV
+/opt/local/bin/python ecamera.py 2>/dev/null 
