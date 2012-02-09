@@ -1,0 +1,206 @@
+#
+# APOGEE makefile for linux
+# $Id: Makefile.svr4,v 1.4 2009/11/18 07:34:43 rfactory Exp $
+#
+
+
+DEVHOME		= .
+INSTALL_DIR	= /opt/apogee
+
+.KEEP_STATE:
+CXX =	g++
+#to build on old dists
+SWIG = /opt/apogee/bin/swig
+
+#to build on newer dists
+#SWIG = /usr/bin/swig
+PYTHONVER	= python2.6
+
+INCDIR		= $(DEVHOME)
+PRIVATEINCDIR	= ../../include
+GUIINC          = /opt/apogee/include
+ALTAINC		= -I./ApogeeUsb -I./ApogeeNet -I./FpgaRegs -DHAVE_STRERROR
+
+CXXFLAGS	= -O2 -g -fpic -DWall -DLINUX -I../../include -I.
+SWIGFLAGS_TCL	= -tcl8 -c++
+SWIGFLAGS_PYTHON= -python -c++ -o apogeeUSB_Pwrap.cpp
+
+LDFLAGS		= -shared -O2 -g
+
+CONFIGTARGETS	= apogee_ISA.so apogee_PCI.so apogee_PPI.so \
+		  apogee_USB.so apogee_NET.so \
+		  serial_USB.so serial_NET.so \
+		  filter_USB.so libapogee_USB.so _apogeeUSB.so
+CONFIGTESTPROG	= test_altau test_altae selectfilter
+
+all: $(CONFIGTARGETS)
+
+testprograms : $(CONFIGTESTPROG)
+
+include models.mak
+
+###################################################################################################
+# Standalone USB driver section (courtesy of Peter Wurtz wuertz@uni-mainz.de)
+
+SRCS_USB = ApnCamera.cpp ApnCamera_USB.cpp ApnCamera_Linux.cpp ApogeeUsb/ApogeeUsbLinux.cpp ApogeeUsb/ApogeeUsbUpload.cpp
+OBJS_USB = $(SRCS_USB:.cpp=.o)
+OBJS_USB_NOLIBCCD = $(SRCS_USB:.cpp=_nolibccd.o)
+LIBS_USB = -lusb
+$(OBJS_USB): $(SRCS_USB)
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c $*.cpp -o $@
+$(OBJS_USB_NOLIBCCD): $(SRCS_USB)
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c $(patsubst %_nolibccd.o,%.cpp,$@) -o $@ -DALTA_STANDALONE
+
+# Apogee USB driver without TCL and libccd
+libapogee_USB.so: CamData $(OBJS_USB_NOLIBCCD)
+	$(CXX) $(LDFLAGS) $(LIBS_USB) $(OBJS_USB_NOLIBCCD) $(OBJS_CAMDATA) -o $@
+
+# Apogee USB driver / python module
+_apogeeUSB.so: CamData $(OBJS_USB_NOLIBCCD)
+	$(SWIG) $(SWIGFLAGS_PYTHON) -DALTA_STANDALONE apogeeUSB.i
+	$(CXX) $(CXXFLAGS) $(ALTAINC) `python-config --cflags` -DALTA_STANDALONE -c apogeeUSB_Pwrap.cpp
+	$(CXX) $(LDFLAGS) $(LIBS_USB) $(OBJS_USB_NOLIBCCD) $(OBJS_CAMDATA) apogeeUSB_Pwrap.o -o _apogeeUSB.so
+
+###################################################################################################
+
+
+apogee_ISA.so:	
+	$(CXX) $(CXXFLAGS) -c CameraIO_Linux.cpp
+	$(CXX) $(CXXFLAGS) -c CameraIO_LinuxISA.cpp
+	$(SWIG) $(SWIGFLAGS_TCL) -o apogeeISA_wrap.c apogeeISA.i 
+	$(CXX) $(CXXFLAGS) -c apogeeISA_wrap.c
+	$(CXX) $(LDFLAGS) apogeeISA_wrap.o CameraIO_Linux.o CameraIO_LinuxISA.o -o apogee_ISA.so
+
+apogee_PCI.so:	
+	$(CXX) $(CXXFLAGS) -c CameraIO_Linux.cpp
+	$(CXX) $(CXXFLAGS) -c CameraIO_LinuxPCI.cpp
+	$(SWIG) $(SWIGFLAGS_TCL) -o apogeePCI_wrap.c apogeePCI.i 
+	$(CXX) $(CXXFLAGS) -c apogeePCI_wrap.c
+	$(CXX) $(LDFLAGS) apogeePCI_wrap.o CameraIO_Linux.o CameraIO_LinuxPCI.o -o apogee_PCI.so
+
+apogee_PPI.so: 
+	$(CXX) $(CXXFLAGS) -c CameraIO_Linux.cpp
+	$(CXX) $(CXXFLAGS) -c CameraIO_LinuxPPI.cpp
+	$(SWIG) $(SWIGFLAGS_TCL) -o apogeePPI_wrap.c apogeePPI.i 
+	$(CXX) $(CXXFLAGS) -c apogeePPI_wrap.c
+	$(CXX) $(LDFLAGS) apogeePPI_wrap.o CameraIO_Linux.o CameraIO_LinuxPPI.o -o apogee_PPI.so
+
+apogee_USB.so: CamData
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnCamera.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnCamera_USB.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnCamera_Linux.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApogeeUsb/ApogeeUsbLinux.cpp 
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApogeeUsb/ApogeeUsbUpload.cpp 
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApogeeUsb/alta2firmware.cpp 
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApogeeUsb/ascentfirmware.cpp 
+	$(SWIG) $(SWIGFLAGS_TCL) -o apogeeUSB_wrap.c apogeeUSB.i 
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c apogeeUSB_wrap.c
+	$(CXX) $(LDFLAGS) ApnCamera.o ApnCamera_Linux.o ApnCamera_USB.o \
+			ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o \
+			ApogeeUsbUpload.o alta2firmware.o ascentfirmware.o \
+			apogeeUSB_wrap.o -o apogee_USB.so -I. /opt/apogee/lib/libusb.so
+
+filter_USB.so:
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnFilterWheel.cpp
+	$(SWIG) $(SWIGFLAGS_TCL) -o filterUSB_wrap.c filterUSB.i 
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c filterUSB_wrap.c
+	$(CXX) $(LDFLAGS) ApnFilterWheel.o filterUSB_wrap.o \
+			 -o filter_USB.so -I. /opt/apogee/lib/libusb.so /opt/apogee/lib/apogee_USB.so
+
+serial_USB.so:
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnSerial.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnSerial_USB.cpp
+	$(SWIG) $(SWIGFLAGS_TCL) -o serialUSB_wrap.c serialUSB.i 
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c serialUSB_wrap.c
+	$(CXX) $(LDFLAGS) ApnSerial.o ApnSerial_USB.o serialUSB_wrap.o \
+			 -o serial_USB.so -I. /opt/apogee/lib/libusb.so /opt/apogee/lib/apogee_USB.so
+serial_NET.so:
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnSerial.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnSerial_NET.cpp
+	$(SWIG) $(SWIGFLAGS_TCL) -o serialNET_wrap.c serialNET.i 
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c serialNET_wrap.c
+	$(CXX) $(LDFLAGS) ApnSerial.o ApnSerial_NET.o serialNET_wrap.o \
+			 -o serial_NET.so -I. /opt/apogee/lib/libcurl.a -lz /opt/apogee/lib/apogee_NET.so
+
+apogee_NET.so: CamData
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnCamera.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnCamera_NET.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnCamera_Linux.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApogeeNet/ApogeeNet.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApogeeNet/ApgEthernet.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApogeeNet/IEthernetIO.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApogeeNet/LinuxEthernetIO.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApogeeNet/UdpSocketBase.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApogeeNet/UdpSocketLinux.cpp
+	$(SWIG) $(SWIGFLAGS_TCL) -o apogeeNET_wrap.c apogeeNET.i
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c apogeeNET_wrap.c
+	$(CXX) $(LDFLAGS) ApnCamera.o ApnCamera_Linux.o ApnCamera_NET.o \
+			ApgEthernet.o IEthernetIO.o LinuxEthernetIO.o UdpSocketBase.o UdpSocketLinux.o \
+			ApogeeNet.o ApnCamData*.o ApnCamTable.o \
+			apogeeNET_wrap.o -o apogee_NET.so -I. -lcurl -lz
+
+
+test_altae: apogee_NET.so
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -DALTA_NET test_alta.cpp -IFpgaRegs -o test_altae \
+			ApogeeNet.o ApnCamData*.o ApnCamTable.o \
+			ApnCamera.o ApnCamera_Linux.o ApnCamera_NET.o \
+			ApgEthernet.o IEthernetIO.o LinuxEthernetIO.o UdpSocketBase.o UdpSocketLinux.o \
+			-ltcl -lcurl /opt/apogee/lib/libccd.so /opt/apogee/lib/libfitsTcl.so -lz
+
+test_altau: apogee_USB.so
+	$(CXX) $(CXXFLAGS) $(ALTAINC) test_alta.cpp -IFpgaRegs -o test_altau \
+			ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o  \
+			ApnCamera.o ApnCamera_Linux.o ApnCamera_USB.o  \
+			ApogeeUsbUpload.o alta2firmware.o ascentfirmware.o \
+			-L/opt/apogee/lib -ltcl8.3 -lccd -lfitsTcl /opt/apogee/lib/libusb.so
+
+test_staticu:
+	$(CXX) $(CXXFLAGS) $(ALTAINC) test_alta.cpp -IFpgaRegs -o test_staticu \
+			ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o  \
+			ApnCamera.o ApnCamera_Linux.o ApnCamera_USB.o  \
+			apogeeUSB_wrap.o -L/opt/apogee/lib -ltcl8.3 -lccd -lfitsTcl \
+			/opt/apogee/lib/libusb.so
+
+selectfilter: 
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApogeeUsb/ApogeeUsbLinux.cpp 
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -c ApnFilterWheel.cpp
+	$(CXX) $(CXXFLAGS) $(ALTAINC) test_filter.cpp -o selectfilter \
+			ApogeeUsbLinux.o ApnFilterWheel.o /opt/apogee/lib/libusb.so
+
+
+test_apogeeppi: apogee_PPI.so
+	$(CXX) $(CXXFLAGS) $(ALTAINC)  test_apogee.cpp -o test_apogeeppi \
+			CameraIO_Linux.o CameraIO_LinuxPPI.o \
+			-L/opt/apogee/lib -ltcl8.3 -lccd -lfitsTcl
+
+test_apogeepci: apogee_PCI.so
+	$(CXX) $(CXXFLAGS) $(ALTAINC)  test_apogee.cpp -o test_apogeepci \
+			CameraIO_Linux.o CameraIO_LinuxPCI.o \
+			-L/opt/apogee/lib -ltcl8.3 -lccd -lfitsTcl
+
+test_apogeeisa: apogee_ISA.so
+	$(CXX) $(CXXFLAGS) $(ALTAINC)  test_apogee.cpp -o test_apogeeisa \
+			CameraIO_Linux.o CameraIO_LinuxISA.o \
+			-L/opt/apogee/lib -ltcl8.3 -lccd -lfitsTcl
+
+test_hatalta: apogee_NET.so
+	$(CXX) $(CXXFLAGS) $(ALTAINC) -DALTA_NET test_hatalta.cpp -IFpgaRegs -o test_hatalta \
+			ApogeeNet.o ApogeeNetLinux.o ApnCamData*.o ApnCamTable.o  \
+			ApnCamera.o ApnCamera_NET.o  \
+			-lcurl
+
+install: $(CONFIGTARGETS) FORCE
+	cp $(CONFIGTARGETS) $(INSTALL_DIR)/lib
+	cp $(CONFIGTESTPROG) $(INSTALL_DIR)/bin
+	cp _apogeeUSB.so $(INSTALL_DIR)/lib/$(PYTHONVER)/lib-dynload
+
+clean:
+	rm -f tags TAGS .make.state .nse_depinfo *.o *.so
+
+tags:
+	ctags $(LIBSOURCES)
+
+FORCE:
+
+
+
