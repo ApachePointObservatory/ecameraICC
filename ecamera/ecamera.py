@@ -34,8 +34,27 @@ BASE_DIRECTORY = '/export/images/forTron/echelle'
 CONFIG = os.path.join(os.getenv('HOME'),'config/ecamera.ini')
 END_OF_LINE = '\r\n'
 
+def get_power():
+    abc=os.popen('/usr/bin/curl -s http://admin:foenix@power1-35m/Set.cmd?CMD=GetPower').readline()
+    x = re.search('.*P60=(\d),P61=(\d),P62=(\d),P63=(\d).*', abc)
+    if len(x.groups()) != 4:
+        print 'not 4 ports'
+        return False
+    if x.groups()[3] == '1':
+        return True
+    print x.groups()
+    return False
+
+def power_on():
+    os.popen('/usr/bin/curl -s http://admin:foenix@power1-35m/Set.cmd?CMD=SetPower+P60=0+P61=0+P62=0+P63=1\n')
+
+def power_off():
+    os.popen('/usr/bin/curl -s http://admin:foenix@power1-35m/Set.cmd?CMD=SetPower+P60=0+P61=0+P62=0+P63=0\n')
+
+
 class ECamera:
     def __init__(self):
+        
         try:
             self.alta_usb = AltaUSB.AltaUSB()
         except:
@@ -51,20 +70,19 @@ class ECamera:
         DEBUG('here4')
 
     def _init(self, unused):
-        if self.alta_usb:
-            self.alta_usb.CloseDriver()
-            del self.alta_usb
+        #if self.alta_usb:
+        #    del self.alta_usb
 
         #
         # power cycle
         #
-        try:
-            DEBUG('here1')
-            self.alta_usb = AltaUSB.AltaUSB()
-            DEBUG('here2')
-        except:
-            self.alta_usb = None
-        DEBUG('here3')
+        #try:
+        #    DEBUG('here1')
+        #    self.alta_usb = AltaUSB.AltaUSB()
+        #    DEBUG('here2')
+        #except:
+        #    self.alta_usb = None
+        #DEBUG('here3')
         return ' OK' + END_OF_LINE
 
     def image_number_init (self):
@@ -191,6 +209,7 @@ class ECamera:
         try:
             DEBUG('...%s...\n' % (line), 0)
             command, integration, binx, biny, ctrx, ctry, sizex, sizey = line.split()
+            DEBUG('ctrx %s, sizex %s' % (ctrx, sizex))
             self.integration = float(integration)
             self.binx = int(binx)
             self.biny = int(biny)
@@ -249,7 +268,6 @@ class ECamera:
                 self.image_number = 0
         except:
             if self.alta_usb:
-                self.alta_usb.CloseDriver()
                 self.alta_usb = None
             DEBUG(format_exc(), 0);
         DEBUG('image number now %s' % (self.image_number))
@@ -289,7 +307,6 @@ class ECamera:
         except:
             DEBUG(format_exc(), 0);
             if self.alta_usb:
-                self.alta_usb.CloseDriver()
                 self.alta_usb = None
         return self.reply
 
@@ -336,7 +353,7 @@ def run():
             logging.debug('output:'+' OK')
             continue
     
-        if buffer in ['q', 'Q']:
+        if buffer in ['quit', 'QUIT']:
             break
     
         # echo the input
