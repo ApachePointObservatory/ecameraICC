@@ -22,7 +22,7 @@ CPPFLAGS	= -O2 -g -fPIC -DWall -DLINUX -DOSX -I../../include -I. \
     -I/usr/include/malloc -I/opt/local/include \
     -I/opt/local/Library/Frameworks/Python.framework/Versions/2.7/include/python2.7 
 PYSWIGFLAGS = -python -shadow -c++
-LDFLAGS		= -dynamiclib -lpython2.7 -L/opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib -L/opt/apogee/lib -L/opt/local/lib
+LDFLAGS		= -dynamiclib -lpython2.7 -L/opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib -L/opt/local/lib -L/opt/apogee/lib
 CONFIGTARGETS	= _apogeeUSB.so
 
 all: $(CONFIGTARGETS)
@@ -42,10 +42,11 @@ _apogeeUSB.so: CamData
 	$(CC) $(CPPFLAGS) $(ALTAINC) -c apogeeUSB_wrap.cxx
 	$(CC) $(LDFLAGS) apogeeUSB_wrap.o ApnCamera.o ApnCamera_USB.o \
             ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o \
+            /opt/local/lib/libusb.a \
             ApogeeUsbUpload.o ApnCamera_Linux.o -I.  \
             -o _apogeeUSB.so \
             -L/opt/apogee/lib -L/opt/local/lib \
-            -lcfitsio -lusb -lccd -ltcl \
+            -lcfitsio -lccd -ltcl \
             -framework CoreFoundation -framework Tcl -framework IOKit
 
 
@@ -63,4 +64,10 @@ FORCE:
 
 
 test:
-	g++ -I/opt/apogee/include  test_alta.cpp -IFpgaRegs -o test_altau ApnCamera.o ApnCamera_Linux.o ApnCamera_USB.o  ApogeeUsbUpload.o ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o -L/opt/apogee/lib -L/opt/local/lib -ltcl8.3 -lccd  -lusb -lcfitsio -framework CoreFoundation -framework Tcl -framework IOKit
+	g++ -I/opt/apogee/include  test_alta.cpp -IFpgaRegs -o test_altau \
+	ApnCamera.o ApnCamera_Linux.o ApnCamera_USB.o  ApogeeUsbUpload.o \
+	ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o \
+    /opt/local/lib/libusb.a \
+	-L/opt/local/lib -L/opt/apogee/lib \
+	-ltcl8.3 -lccd  -lcfitsio \
+	-framework CoreFoundation -framework Tcl -framework IOKit

@@ -22,12 +22,8 @@ logging.basicConfig(filename='/tmp/ecamera.log',level=logging.DEBUG)
 from traceback import print_exc, format_exc
 
 def DEBUG(message, level=0):
-    logging.debug(message)
+    logging.debug(time.asctime(time.gmtime(time.time()))+message)
     return
-    if message[-1] != '\n':
-        message += '\n'
-    sys.stdout.write(message)
-    sys.stdout.flush()
 
 class AltaUSB(CApnCamera):
     # Parse the response to the Read and Write register calls.
@@ -38,18 +34,21 @@ class AltaUSB(CApnCamera):
         """ Connect to an Alta-E at the given IP address and start to initialize it. """
         CApnCamera.__init__(self)
 
+        self.flip = True
         self.ok = False         # init driver opened
         self.connected = False  # usb is connected
         self.present = False    # InitData() succeeded 
         self.Apn_Status_ConnectionError = 6
-        DEBUG('calling doInit()')
-        self.doInit()
+        DEBUG('calling doInit(1)')
+        self.doInit(init=1)
         self.bin_x, self.bin_y = 1, 1
         self.x0, self.y0 = 0, 0
         DEBUG('AltaUSB __init__ done')
 
     def __del__(self):
+        DEBUG('AltaUSB __del__ close driver')
         self.CloseDriver()
+        time.sleep(1.0)
         
     def __checkSelf(self):
         """ Single point to call before communicating with the camera. """
@@ -65,25 +64,27 @@ class AltaUSB(CApnCamera):
         """ (Re-)open a connection to the camera. """
         raise RuntimeError("Cannot reconnect to an already open Alta.")
     
-    def doInit(self):
+    def doInit(self, init=0):
         """ (Re-)initialize and already open connection. """
 
         # APN_ALTA_CCD7700HS_CAM_ID is 27
+        if not init:
+            self.CloseDriver()
 
-        DEBUG('init driver')
+        DEBUG('doInit: init driver')
         self.ok = self.InitDriver(1, 0, 0)
         DEBUG('okay is %s\n' % (self.ok))
+        DEBUG('doInit: reset system')
         self.ResetSystem()
 
         self.connected = False
         self.present = False
 
         state = self.read_ImagingStatus()
-        DEBUG('_expose: ok %d, image status %d\n' % (self.ok, state))
+        DEBUG('doInit: ok %d, image status %d\n' % (self.ok, state))
 
         result = self.InitDefaults()
-        DEBUG('_expose, init defaults result %s\n' % (result))
-
+        DEBUG('doInit, init defaults result %s\n' % (result))
 
         self.present = True
 
@@ -193,8 +194,14 @@ class AltaUSB(CApnCamera):
 
         self.__checkSelf()
 
+        if x > 5:
+            x = 5
+
         if y == None:
             y = x
+
+        if y > 5:
+            y = 5
         
         DEBUG('x %s, y %s\n' % (x, y));
         try:
@@ -228,15 +235,55 @@ class AltaUSB(CApnCamera):
 
         self.__checkSelf()
 
+        if y0 < 0:
+            DEBUG('y0 too small %d', y0)
+            y0 = 0
+        if y0 > 512:
+            DEBUG('y0 too large %d', y0)
+            y0 = 512
+        if x0 < 0:
+            DEBUG('x0 too small %d', x0)
+            x0 = 0
+        if x0 > 512:
+            DEBUG('x0 too large %d', x0)
+            x0 = 512
+
+        if (x0 + sizex * self.bin_x) > 512:
+            DEBUG('sizex too large x0 %d, size %d, bin %d', x0, sizex,self.bin_x)
+            sizex = (512 - x0) / self.bin_x
+
+        if (y0 + sizey * self.bin_y) > 512:
+            DEBUG('sizey too large y0 %d, size %d, bin %d', y0, sizey ,self.bin_y)
+            sizey = (512 - y0) / self.bin_y
+
         self.x0 = self._iround(x0 / self.bin_x)
         self.y0 = self._iround(y0 / self.bin_y)
 
-        DEBUG('set PixlesH %d' % (sizey))
-        self.write_RoiPixelsH(sizey)
-        DEBUG('set PixlesV %d' % (sizex))
-        self.write_RoiPixelsV(sizex)
-        self.write_RoiStartX(x0)
-        self.write_RoiStartY(y0)
+        if self.flip:
+            
+            self.m_pvtRoiStartX = y0
+            #self.m_pvtRoiStartY = 512 - x0 - sizex * self.bin_x
+            self.m_pvtRoiStartY = x0
+            xoff = x0 + sizex * self.bin_x / 2
+            if xoff + sizex * self.bin_x > 511:
+                xoff = 512 - sizex * self.bin_x
+            if xoff < 0:
+                xoff = 0
+            self.m_pvtRoiStartX = xoff
+            self.m_pvtRoiPixelsH = sizey
+            self.m_pvtRoiPixelsV = sizex
+        else:
+            self.m_pvtRoiStartX = x0
+            self.m_pvtRoiStartY = y0
+            self.m_pvtRoiPixelsH = sizex
+            self.m_pvtRoiPixelsV = sizey
+
+        #DEBUG('set PixlesH %d' % (sizey))
+        #self.write_RoiPixelsH(sizey)
+        #DEBUG('set PixlesV %d' % (sizex))
+        #self.write_RoiPixelsV(sizex)
+        #self.write_RoiStartX(y0)
+        #self.write_RoiStartY(x0)
         
     def expose(self, itime, filename=None):
         return self._expose(itime, True, filename)
@@ -357,6 +404,9 @@ class AltaUSB(CApnCamera):
         self.FillImageBuffer(image)
         DEBUG("return image")
  
+        image = image.reshape(h,w)
+        if self.flip:
+            image = np.rot90(image)
         return image
 
 
@@ -407,7 +457,7 @@ class AltaUSB(CApnCamera):
         hdr.update('BSCALE', 1.0)
         hdr.update('BZERO', 32768.0)
         hdr.update('BEGX', self.x0+1)
-        hdr.update('BEGY', self.y0+1)
+        hdr.update('BEGY', self.y0+1) # +1
         hdr.update('FULLX', 512)
         hdr.update('FULLY', 512)
         hdr.update('BINX', self.bin_x)
