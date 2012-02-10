@@ -14,7 +14,6 @@ import ConfigParser
 import sys
 import time
 from traceback import format_exc
-import syslog
 import logging
 
 import AltaUSB
@@ -34,24 +33,6 @@ BASE_DIRECTORY = '/export/images/forTron/echelle'
 CONFIG = os.path.join(os.getenv('HOME'),'config/ecamera.ini')
 END_OF_LINE = '\r\n'
 
-def get_power():
-    abc=os.popen('/usr/bin/curl -s http://admin:foenix@power1-35m/Set.cmd?CMD=GetPower').readline()
-    x = re.search('.*P60=(\d),P61=(\d),P62=(\d),P63=(\d).*', abc)
-    if len(x.groups()) != 4:
-        print 'not 4 ports'
-        return False
-    if x.groups()[3] == '1':
-        return True
-    print x.groups()
-    return False
-
-def power_on():
-    os.popen('/usr/bin/curl -s http://admin:foenix@power1-35m/Set.cmd?CMD=SetPower+P60=0+P61=0+P62=0+P63=1\n')
-
-def power_off():
-    os.popen('/usr/bin/curl -s http://admin:foenix@power1-35m/Set.cmd?CMD=SetPower+P60=0+P61=0+P62=0+P63=0\n')
-
-
 class ECamera:
     def __init__(self):
         
@@ -70,19 +51,6 @@ class ECamera:
         DEBUG('here4')
 
     def _init(self, unused):
-        #if self.alta_usb:
-        #    del self.alta_usb
-
-        #
-        # power cycle
-        #
-        #try:
-        #    DEBUG('here1')
-        #    self.alta_usb = AltaUSB.AltaUSB()
-        #    DEBUG('here2')
-        #except:
-        #    self.alta_usb = None
-        #DEBUG('here3')
         return ' OK' + END_OF_LINE
 
     def image_number_init (self):
@@ -118,8 +86,8 @@ class ECamera:
                 else:
                     self.last_image = 0
                     self.image_number = 0
-                    DEBUG('image_number_init() search fails ...%s...' % (last_file),\
-                        0)
+                    DEBUG('image_number_init() search fails ...%s...' % \
+                        (last_file), 0)
             else:
                 self.last_image = 0
                 self.image_number = 0
@@ -154,6 +122,7 @@ class ECamera:
             self.image_wrap = config.getint('ecamera','image wrap')
             self.noise_units = config.get('alta', 'noise units')
             self.dark_current_units = config.get('alta', 'dark current units')
+            self.temperature = config.get(alta, 'temperature')
             self.name = config.get('alta', 'name')
             self.image_directory = config.get('ecamera','image directory')
             self.image_directory = os.path.expandvars(self.image_directory)
@@ -165,8 +134,8 @@ class ECamera:
         if self.alta_usb:
             self.alta_usb.coolerStatus()
             message = '%d %d %d %d %d %d %f 1 %f' % \
-                (self.binx, self.biny, self.x0, self.y0, self.sizex, self.sizey, \
-                self.integration, self.alta_usb.read_TempCCD())
+                (self.binx, self.biny, self.x0, self.y0, self.sizex, 
+                 self.sizey, self.integration, self.alta_usb.read_TempCCD())
         else:
             message = '0 0 0 0 0 0 0.0 0 0'
         message += ' image: binXY begXY sizeXY expTime camID temp' + END_OF_LINE
@@ -274,8 +243,12 @@ class ECamera:
         return self.reply
     
     def setcam(self, line):
+        '''
+            user function
+        '''
         ccd_temp = 0.0
         if self.alta_usb:
+            self.alta_usb.setCooler(self.temperature)
             self.alta_usb.coolerStatus()
             ccd_temp = self.alta_usb.read_TempCCD()
         self.reply = ''
@@ -300,7 +273,7 @@ class ECamera:
         try:
             self._setup_image(line)
             self.alta_usb.dark (self.integration, filename)
-            self.last_image = image_number
+            self.last_image = self.image_number
             self.image_number = self.image_number + 1
             if self.image_number > self.image_wrap:
                 self.image_number = 0
