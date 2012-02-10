@@ -7,6 +7,7 @@ knows these commands:
     dodark
     init
     setcam
+    showstatus
 '''
 import os
 import re
@@ -14,24 +15,14 @@ import ConfigParser
 import sys
 import time
 from traceback import format_exc
-import logging
 
+from debugLog import DEBUG
 import AltaUSB
-
-logging.basicConfig(filename='/tmp/ecamera.log',level=logging.DEBUG)
-
-def DEBUG(message, level=0):
-    #syslog.syslog(message.strip())
-    logging.debug(message)
-    return
-    if message[-1] != '\n':
-        message += '\n'
-    sys.stdout.write('ecamera: ' + message)
-    sys.stdout.flush()
 
 BASE_DIRECTORY = '/export/images/forTron/echelle'
 CONFIG = os.path.join(os.getenv('HOME'),'config/ecamera.ini')
 END_OF_LINE = '\r\n'
+OKAY = ' OK'
 
 class ECamera:
     def __init__(self):
@@ -42,16 +33,18 @@ class ECamera:
             self.alta_usb = None
             DEBUG(format_exc())
         self.reply = ''
-        DEBUG('here1')
         self.read_config()
-        DEBUG('here2')
         self.image_number = 0
-        DEBUG('here3')
         self.image_number_init()
-        DEBUG('here4')
+
+        # software setup, now be sure hardware is set right
+        self.alta_usb.setCooler(self.temperature)
 
     def _init(self, unused):
-        return ' OK' + END_OF_LINE
+        '''
+        really should be an inline function.
+        '''
+        return OKAY + END_OF_LINE
 
     def image_number_init (self):
         '''
@@ -122,7 +115,7 @@ class ECamera:
             self.image_wrap = config.getint('ecamera','image wrap')
             self.noise_units = config.get('alta', 'noise units')
             self.dark_current_units = config.get('alta', 'dark current units')
-            self.temperature = config.get(alta, 'temperature')
+            self.temperature = config.get('alta', 'temperature')
             self.name = config.get('alta', 'name')
             self.image_directory = config.get('ecamera','image directory')
             self.image_directory = os.path.expandvars(self.image_directory)
@@ -211,7 +204,7 @@ class ECamera:
             time.sleep(1)
             self.alta_usb.setWindow(self.x0, self.y0, self.sizex, self.sizey)
             self.reply = self._image_info()
-            self.reply = self.reply + ' OK' + END_OF_LINE
+            self.reply = self.reply + OKAY + END_OF_LINE
         except:
             DEBUG(format_exc());
             self.reply = 'ERROR' + END_OF_LINE
@@ -224,7 +217,7 @@ class ECamera:
         if not self.alta_usb:
             self.reply = self._image_info() + END_OF_LINE
             self.reply += 'image: binXY begXY sizeXY expTime camID temp' + END_OF_LINE
-            self.reply = self.reply + ' OK' + END_OF_LINE
+            self.reply = self.reply + OKAY + END_OF_LINE
             return self.reply
 
         filename = self.image_number_write()
@@ -248,7 +241,6 @@ class ECamera:
         '''
         ccd_temp = 0.0
         if self.alta_usb:
-            self.alta_usb.setCooler(self.temperature)
             self.alta_usb.coolerStatus()
             ccd_temp = self.alta_usb.read_TempCCD()
         self.reply = ''
@@ -256,7 +248,25 @@ class ECamera:
         self.reply = self.reply % (ccd_temp, self.last_image)
         self.reply += "camera: ID# name sizeXY bits/pixel temp last FileNum"
         self.reply += END_OF_LINE
-        self.reply += ' OK' + END_OF_LINE
+        self.reply += OKAY + END_OF_LINE
+
+        return self.reply
+
+    
+    def showstatus(self, line):
+        '''
+            user function
+        '''
+        ccd_temp = 0.0
+        if self.alta_usb:
+            self.alta_usb.coolerStatus()
+            ccd_temp = self.alta_usb.read_TempCCD()
+        self.reply = ''
+        self.reply = '1 "USB Apogee Camera" 512 512 16 %.2f %d '
+        self.reply = self.reply % (ccd_temp, self.last_image)
+        self.reply += "camera: ID# name sizeXY bits/pixel temp last FileNum"
+        self.reply += END_OF_LINE
+        self.reply += OKAY + END_OF_LINE
 
         return self.reply
 
@@ -266,7 +276,7 @@ class ECamera:
         if not self.alta_usb:
             self.reply = self._image_info() + END_OF_LINE
             self.reply += 'image: binXY begXY sizeXY expTime camID temp' + END_OF_LINE
-            self.reply = self.reply + ' OK' + END_OF_LINE
+            self.reply = self.reply + OKAY + END_OF_LINE
             return self.reply
 
         filename = self.image_number_write()
@@ -293,7 +303,8 @@ commands = {
     'doread' :  ecamera.doread,
     'dodark':   ecamera.dodark,
     'init':     ecamera._init,
-    'setcam':   ecamera.setcam
+    'setcam':   ecamera.setcam,
+    'showstatus': ecamera.showstatus
     }
 
 def parse_line(parts):
@@ -315,15 +326,15 @@ def run():
     while 1:
         input = sys.stdin.readline()
         if not input:
-            logging.debug('read empty line\n')
+            DEBUG('read empty line\n', 0)
             break
-        logging.debug(' input:...%s...' % (input))
+        DEBUG(' input:...%s...' % (input), 0)
         
         buffer = input.strip()
         if not buffer:
-            sys.stdout.write(' OK'+END_OF_LINE)
+            sys.stdout.write(OKAY + END_OF_LINE)
             sys.stdout.flush()
-            logging.debug('output:'+' OK')
+            DEBUG('output:' + OKAY, 0)
             continue
     
         if buffer in ['quit', 'QUIT']:
@@ -332,21 +343,21 @@ def run():
         # echo the input
         sys.stdout.write('\n' + buffer + END_OF_LINE)
         sys.stdout.flush()
-        logging.debug('output:'+buffer+END_OF_LINE)
+        DEBUG('output:'+buffer+END_OF_LINE, 0)
     
         command = buffer.split()[0]
         if command in commands:
             reply = commands[command](buffer)
             sys.stdout.write(reply)
-            logging.debug('output:'+reply.strip())
+            DEBUG('output:'+reply.strip(), 0)
         else:
-            sys.stdout.write(' OK'+END_OF_LINE)
-            logging.debug('output:'+' OK')
+            sys.stdout.write(OKAY + END_OF_LINE)
+            DEBUG('output:' + OKAY, 0)
         sys.stdout.flush()
 
 try:
-    logging.debug('starting ecamera, hello')
+    DEBUG('starting ecamera, hello', 0)
     run()
-    logging.debug('going away, bye')
+    DEBUG('going away, bye', 0)
 except:
     print format_exc()

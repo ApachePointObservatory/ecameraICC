@@ -1,8 +1,17 @@
 '''
 control a remote power switch to reboot the camera
-'''
 
-def get_power():
+generally there would be a power switch class with instances 
+of different kinds of power switches. all a user wants to see 
+is on, off, status
+'''
+import os
+import re
+
+def power_status():
+    '''
+    power status
+    '''
     abc = os.popen('/usr/bin/curl -s \
 http://admin:foenix@power1-35m/Set.cmd?CMD=GetPower'
                 ).readline()
@@ -15,17 +24,29 @@ http://admin:foenix@power1-35m/Set.cmd?CMD=GetPower'
     print x.groups()
     return False
 
-def power_on():
-    os.popen('/usr/bin/curl -s \
+def power_on(port=0, name=None):
+    '''
+    power on port number or name
+    '''
+    if not port and not name:
+        os.popen('/usr/bin/curl -s \
 http://admin:foenix@power1-35m/Set.cmd?\
 CMD=SetPower+P60=0+P61=0+P62=0+P63=1\n'
             )
+    else:
+        print 'port and name not implemented'
 
-def power_off():
-    os.popen('/usr/bin/curl -s \
+def power_off(port=0, name=None):
+    '''
+    power off
+    '''
+    if not port and not name:
+        os.popen('/usr/bin/curl -s \
 http://admin:foenix@power1-35m/Set.cmd?\
 CMD=SetPower+P60=0+P61=0+P62=0+P63=0\n'
             )
+    else:
+        print 'port and name not implemented'
 
 if __name__ == '__main__':
     print 'ecamera [on, off, status]'
