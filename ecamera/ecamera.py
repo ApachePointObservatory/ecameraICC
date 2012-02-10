@@ -115,7 +115,7 @@ class ECamera:
             self.image_wrap = config.getint('ecamera','image wrap')
             self.noise_units = config.get('alta', 'noise units')
             self.dark_current_units = config.get('alta', 'dark current units')
-            self.temperature = config.get('alta', 'temperature')
+            self.temperature = config.getfloat('alta', 'temperature')
             self.name = config.get('alta', 'name')
             self.image_directory = config.get('ecamera','image directory')
             self.image_directory = os.path.expandvars(self.image_directory)
