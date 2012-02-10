@@ -1,5 +1,7 @@
 '''
 Interface to Apogee USB Camera
+
+NOTE: The chip appears to be rotated 90 degrees.  Hence, the flip = True flag
 '''
 __all__ = ['AltaUSB']
 
@@ -31,7 +33,7 @@ class AltaUSB(CApnCamera):
 
         CApnCamera.__init__(self)
 
-        self.flip = True        # make image line up
+        self.flip = True       # make image line up
         self.ok = False         # init driver opened
         self.connected = False  # usb is connected
         self.present = False    # InitData() succeeded 
@@ -236,16 +238,8 @@ class AltaUSB(CApnCamera):
         self.y0 = self._iround(y0 / self.bin_y)
 
         if self.flip:
-            
-            self.m_pvtRoiStartX = y0
-            #self.m_pvtRoiStartY = 512 - x0 - sizex * self.bin_x
+            self.m_pvtRoiStartX = 512 - (y0 + sizey * self.bin_y)
             self.m_pvtRoiStartY = x0
-            xoff = x0 + sizex * self.bin_x / 2
-            if xoff + sizex * self.bin_x > 511:
-                xoff = 512 - sizex * self.bin_x
-            if xoff < 0:
-                xoff = 0
-            self.m_pvtRoiStartX = xoff
             self.m_pvtRoiPixelsH = sizey
             self.m_pvtRoiPixelsV = sizex
         else:
@@ -253,13 +247,6 @@ class AltaUSB(CApnCamera):
             self.m_pvtRoiStartY = y0
             self.m_pvtRoiPixelsH = sizex
             self.m_pvtRoiPixelsV = sizey
-
-        #DEBUG('set PixlesH %d' % (sizey))
-        #self.write_RoiPixelsH(sizey)
-        #DEBUG('set PixlesV %d' % (sizex))
-        #self.write_RoiPixelsV(sizex)
-        #self.write_RoiStartX(y0)
-        #self.write_RoiStartY(x0)
         
     def expose(self, itime, filename=None):
         return self._expose(itime, True, filename)
@@ -374,7 +361,7 @@ class AltaUSB(CApnCamera):
         h = self.GetExposurePixelsV()
         w = self.GetExposurePixelsH()
  
-        DEBUG("create image h %d, w %d" % (h, w))
+        DEBUG("create image w %d, h %d" % (w, h))
         image = np.ndarray((w, h), dtype='uint16')
         DEBUG("fill image buffer")
         self.FillImageBuffer(image)
