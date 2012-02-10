@@ -1,44 +1,44 @@
+'''
+Interface to Apogee USB Camera
+'''
 __all__ = ['AltaUSB']
+
+import numpy as np
+import pyfits
+import time
+import os
+import logging
+from traceback import format_exc
 
 from apogeeUSB import CApnCamera
 
-import numarray
-import numpy as np
-import pyfits
-import pixel16
-
-import math
-import re
-import socket
-import time
-import urllib
-import sys
-import os
-
-import logging
-
 logging.basicConfig(filename='/tmp/ecamera.log',level=logging.DEBUG)
-
-from traceback import print_exc, format_exc
 
 def DEBUG(message, level=0):
     logging.debug(time.asctime(time.gmtime(time.time()))+message)
     return
 
 class AltaUSB(CApnCamera):
-    # Parse the response to the Read and Write register calls.
-    #
-    readRegRE = re.compile('^FPGA\[(\d+)\]=(0x[0-9A-F]+)\s*$')
+    '''
+    Instantiate this class and get an object that should be connected to the
+    camera.  For now, a power cycle is sometimes needed.
+    '''
 
     def __init__(self):
-        """ Connect to an Alta-E at the given IP address and start to initialize it. """
+        ''' 
+        Connect to a camera, initialize it. 
+        '''
+
         CApnCamera.__init__(self)
 
-        self.flip = True
+        self.flip = True        # make image line up
         self.ok = False         # init driver opened
         self.connected = False  # usb is connected
         self.present = False    # InitData() succeeded 
+
+        # this definition is lifted from USB CCD sources - bad failure, common
         self.Apn_Status_ConnectionError = 6
+
         DEBUG('calling doInit(1)')
         self.doInit(init=1)
         self.bin_x, self.bin_y = 1, 1
@@ -51,7 +51,7 @@ class AltaUSB(CApnCamera):
         time.sleep(1.0)
         
     def __checkSelf(self):
-        """ Single point to call before communicating with the camera. """
+        ''' Single point to call before communicating with the camera. '''
         
         if not self.connected:
             raise RuntimeError("Alta camera device not available")
@@ -61,11 +61,11 @@ class AltaUSB(CApnCamera):
             raise RuntimeError("Alta camera init failed")
         
     def doOpen(self):
-        """ (Re-)open a connection to the camera. """
+        ''' (Re-)open a connection to the camera. '''
         raise RuntimeError("Cannot reconnect to an already open Alta.")
     
     def doInit(self, init=0):
-        """ (Re-)initialize and already open connection. """
+        ''' (Re-)initialize and already open connection. '''
 
         # APN_ALTA_CCD7700HS_CAM_ID is 27
         if not init:
@@ -100,39 +100,8 @@ class AltaUSB(CApnCamera):
         DEBUG('return from doInit')
         return self.ok
     
-    def readReg(self, reg):
-        """ Read a single register. """
-
-        self.__checkSelf()
-        raise UnimplementedError("readReg")
-
-
-    def readRegs(self, regs):
-        """ Read a single register. """
-
-        self.__checkSelf()
-        raise UnimplementedError("readRegs")
-
-
-    def writeReg(self, reg, value):
-        """ Write a single register. """
-
-        self.__checkSelf()
-
-        raise UnimplementedError("writeReg")
-
-    def writeRegs(self, regs, values):
-        """ Write a single register. """
-
-        self.__checkSelf()
-
-        if len(regs) != len(values):
-            raise ValueError("number of registers and values passed to writeRegs must match.")
-        
-        raise UnimplementedError("writeReg")
-
     def coolerStatus(self):
-        """ Return a cooler status keywords. """
+        ''' Return a cooler status keywords. '''
 
         self.__checkSelf()
 
@@ -144,18 +113,19 @@ class AltaUSB(CApnCamera):
         fan = self.read_FanMode()
         
         #return "cooler=%0.1f,%0.1f,%0.1f,%0.1f,%d,%d" % (setpoint,
-        return "setpoint %0.1f, ccd %0.1f,heatsink %0.1f, drive %0.1f,fan %d,status %d" % (setpoint,
-                                                         ccdTemp, heatsinkTemp,
-                                                         drive, fan, status)
+        return \
+"setpoint %0.1f, ccd %0.1f,heatsink %0.1f, drive %0.1f,fan %d,status %d" \
+            % (setpoint, ccdTemp, heatsinkTemp, drive, fan, status)
+
     def setCooler(self, setPoint):
-        """ Set the cooler setpoint.
+        ''' Set the cooler setpoint.
 
         Args:
            setPoint - degC to use as the TEC setpoint. If None, turn off cooler.
 
         Returns:
            the cooler status keyword.
-        """
+        '''
 
         self.__checkSelf()
 
@@ -169,11 +139,11 @@ class AltaUSB(CApnCamera):
         return self.coolerStatus()
 
     def setFan(self, level):
-        """ Set the fan power.
+        ''' Set the fan power.
 
         Args:
            level - 0=Off, 1=low, 2=medium, 3=high.
-        """
+        '''
 
         self.__checkSelf()
 
@@ -182,15 +152,15 @@ class AltaUSB(CApnCamera):
 
         self.write_FanMode(level)
 
-    def setBinning(self, x, y=None):
-        """ Set the readout binning.
+    def setBinning (self, x, y=None):
+        ''' Set the readout binning.
 
         Args:
             x = binning factor along rows.
             y ? binning factor along columns. If not passed in, same as x.
-        """
+        '''
 
-        DEBUG('in binning, check\n');
+        DEBUG('in binning, check\n')
 
         self.__checkSelf()
 
@@ -202,27 +172,31 @@ class AltaUSB(CApnCamera):
 
         if y > 5:
             y = 5
+
+        if y < 1:
+            y = 1
+
+        if x < 1:
+            x = 1
+        #complain
         
-        DEBUG('x %s, y %s\n' % (x, y));
         try:
             self.write_RoiBinningV(y)       # NOTE: Order is important!!
         except:
             DEBUG(format_exc())
-        #time.sleep(0.2)
-        DEBUG('y set, now set x\n')
-        #time.sleep(0.2)
+
         try:
-            self.write_RoiBinningH(x)       # This call resets the FPGA if changed
+            self.write_RoiBinningH(x)       # This call resets FPGA if changed
         except:
             print format_exc()
-        DEBUG('in binning, done\n');
+
         self.bin_x = x
         self.bin_y = y
 
     def _iround(self, x):
-        """
+        '''
         iround(number) -> integer        Round a number to the nearest integer
-        """
+        '''
         return int(round(x) - .5) + (x > 0)
 
     def setWindow(self, x0, y0, sizex, sizey):
@@ -249,11 +223,13 @@ class AltaUSB(CApnCamera):
             x0 = 512
 
         if (x0 + sizex * self.bin_x) > 512:
-            DEBUG('sizex too large x0 %d, size %d, bin %d', x0, sizex,self.bin_x)
+            DEBUG('sizex too large x0 %d, size %d, bin %d' %\
+                (x0, sizex,self.bin_x))
             sizex = (512 - x0) / self.bin_x
 
         if (y0 + sizey * self.bin_y) > 512:
-            DEBUG('sizey too large y0 %d, size %d, bin %d', y0, sizey ,self.bin_y)
+            DEBUG('sizey too large y0 %d, size %d, bin %d' %\
+                (y0, sizey ,self.bin_y))
             sizey = (512 - y0) / self.bin_y
 
         self.x0 = self._iround(x0 / self.bin_x)
@@ -293,7 +269,7 @@ class AltaUSB(CApnCamera):
         return self._expose(0.0, False, filename)
         
     def _expose(self, itime, openShutter, filename):
-        """ Take an exposure.
+        ''' Take an exposure.
 
         Args:
             itime        - seconds
@@ -306,7 +282,7 @@ class AltaUSB(CApnCamera):
                            iTime:    integration time
                            filename: the given filename, or None
                            data:     the image data as a string, or None if saved to a file.
-        """
+        '''
 
         self.__checkSelf()
 
@@ -317,7 +293,7 @@ class AltaUSB(CApnCamera):
         for i in range(2):
             state = self.read_ImagingStatus()
             if state == 4:
-                break;
+                break
             # print "starting state=%d, RESETTING" % (state)
             self.ResetSystem()
 
@@ -371,7 +347,7 @@ class AltaUSB(CApnCamera):
         t1 = time.time()
 
         state = self.read_ImagingStatus()
-        DEBUG("state=%d readoutTime=%0.2f" % (state,t1-t0))
+        DEBUG("state=%d readoutTime=%0.2f" % (state, t1-t0))
 
         DEBUG("dir of d=%s" % (dir(d)))
         d['iTime'] = itime
@@ -392,61 +368,46 @@ class AltaUSB(CApnCamera):
 
  
     def fetchImage(self):
-        """ Return the current image. """
+        ''' Return the current image. '''
  
         # I _think_ this is the right way to get the window size...
         h = self.GetExposurePixelsV()
         w = self.GetExposurePixelsH()
  
         DEBUG("create image h %d, w %d" % (h, w))
-        image = np.ndarray((w,h), dtype='uint16')
+        image = np.ndarray((w, h), dtype='uint16')
         DEBUG("fill image buffer")
         self.FillImageBuffer(image)
         DEBUG("return image")
  
-        image = image.reshape(h,w)
+        image = image.reshape(h, w)
         if self.flip:
             image = np.rot90(image)
         return image
 
 
-    def PyRead(self):
-        """ Read the current image using the python-level hooks. """
-    
-        h = self.m_pvtRoiPixelsV
-        w = self.m_pvtRoiPixelsH
-
-        x = urllib.urlopen('http://%s/UE/image.bin' % (self.hostname))
-        data = x.read()
-        data = pixel16.undoAlta(data, h, w)
-
-        self.m_pvtImageInProgress = 0
-        self.SignalHaveRead()
-
-        return data
-
-    def getTS(self, t=None, format="%Y/%m/%d %H:%M:%S", zone="Z"):
-        """ Return a proper ISO timestamp for t, or now if t==None. """
+    def getTS(self, t_now=None, format="%Y/%m/%d %H:%M:%S", zone="Z"):
+        ''' Return a proper ISO timestamp for t, or now if t==None. '''
         
-        if t == None:
-            t = time.time()
+        if t_now == None:
+            t_now = time.time()
             
         if zone == None:
             zone = ''
             
-        time_string = time.strftime(format, time.gmtime(t))
+        time_string = time.strftime(format, time.gmtime(t_now))
         utdate, uttime = time_string.split()
         return uttime, utdate
 
                                                         
     def WriteFITS(self, d):
-        """ Write an image to a FITS file.
+        ''' Write an image to a FITS file.
 
         Args:
             data      - the image data, as a string.
             w, h      - the image height and width.
             filename  - the filename to write to.
-        """
+        '''
 
         filename = d['filename']
 
