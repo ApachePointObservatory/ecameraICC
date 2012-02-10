@@ -1,3 +1,6 @@
+'''
+control a remote power switch to reboot the camera
+'''
 
 def get_power():
     abc = os.popen('/usr/bin/curl -s \
@@ -23,3 +26,6 @@ def power_off():
 http://admin:foenix@power1-35m/Set.cmd?\
 CMD=SetPower+P60=0+P61=0+P62=0+P63=0\n'
             )
+
+if __name__ == '__main__':
+    print 'ecamera [on, off, status]'
