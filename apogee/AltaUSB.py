@@ -8,6 +8,7 @@ __all__ = ['AltaUSB']
 import numpy as np
 import pyfits
 import time
+import datetime
 import os
 import logging
 from traceback import format_exc
@@ -17,7 +18,7 @@ from apogeeUSB import CApnCamera
 logging.basicConfig(filename='/tmp/ecamera.log',level=logging.DEBUG)
 
 def DEBUG(message, level=0):
-    logging.debug(time.asctime(time.gmtime(time.time()))+message)
+    logging.debug(datetime.datetime(2000,1,1).isoformat() + ' ' + message)
     return
 
 class AltaUSB(CApnCamera):
@@ -336,7 +337,6 @@ class AltaUSB(CApnCamera):
         state = self.read_ImagingStatus()
         DEBUG("state=%d readoutTime=%0.2f" % (state, t1-t0))
 
-        DEBUG("dir of d=%s" % (dir(d)))
         d['iTime'] = itime
         d['type'] = fitsType
         d['startTime'] = start

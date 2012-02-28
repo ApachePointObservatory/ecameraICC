@@ -33,6 +33,9 @@ CamData:
 	$(CC) $(CPPFLAGS) -c ApnCamTable.cpp
 	$(CC) $(CPPFLAGS) $(ALTAINC) -c ApnCamera_Linux.cpp
 
+#            -lcfitsio -lccd -ltcl \
+#            -framework CoreFoundation -framework Tcl -framework IOKit
+#            -L/opt/apogee/lib -L/opt/local/lib
 _apogeeUSB.so: CamData
 	$(CC) $(CPPFLAGS) $(ALTAINC) -c ApnCamera.cpp
 	$(CC) $(CPPFLAGS) $(ALTAINC) -c ApnCamera_USB.cpp
@@ -43,11 +46,9 @@ _apogeeUSB.so: CamData
 	$(CC) $(LDFLAGS) apogeeUSB_wrap.o ApnCamera.o ApnCamera_USB.o \
             ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o \
             /opt/local/lib/libusb.a \
-            ApogeeUsbUpload.o ApnCamera_Linux.o -I.  \
-            -o _apogeeUSB.so \
-            -L/opt/apogee/lib -L/opt/local/lib \
-            -lcfitsio -lccd -ltcl \
-            -framework CoreFoundation -framework Tcl -framework IOKit
+            ApogeeUsbUpload.o ApnCamera_Linux.o \
+            -o _apogeeUSB.so -lccd \
+            -framework CoreFoundation -framework IOKit
 
 
 install: $(CONFIGTARGETS) FORCE
