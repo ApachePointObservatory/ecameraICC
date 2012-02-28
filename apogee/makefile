@@ -33,9 +33,6 @@ CamData:
 	$(CC) $(CPPFLAGS) -c ApnCamTable.cpp
 	$(CC) $(CPPFLAGS) $(ALTAINC) -c ApnCamera_Linux.cpp
 
-#            -lcfitsio -lccd -ltcl \
-#            -framework CoreFoundation -framework Tcl -framework IOKit
-#            -L/opt/apogee/lib -L/opt/local/lib
 _apogeeUSB.so: CamData
 	$(CC) $(CPPFLAGS) $(ALTAINC) -c ApnCamera.cpp
 	$(CC) $(CPPFLAGS) $(ALTAINC) -c ApnCamera_USB.cpp
