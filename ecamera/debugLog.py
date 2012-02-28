@@ -9,6 +9,7 @@ levels:
     debug = 3
 '''
 import logging
+import datetime
 
 # do i need to protect against multiple imports?
 logging.basicConfig(filename='/tmp/ecamera.log', level=logging.DEBUG)
@@ -26,4 +27,4 @@ def DEBUG(message, level=0):
     if level > DEBUG_LEVEL:
         return
     #syslog.syslog(message.strip())
-    logging.debug(message)
+    logging.debug(datetime.datetime(2000,1,1).isoformat() + ' ' + message)
