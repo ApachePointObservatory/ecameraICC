@@ -1,17 +1,14 @@
 Mac Install
 
-libraries to install:
+Libraries to install:
 
 From port install:
 
+py27-pip
 cfitsio                        @3.280          science/cfitsio
 curl                           @7.24.0         net/curl
 curl-ca-bundle                 @7.24.0         net/curl-ca-bundle
-libusb-devel                   @1.0.8.20101017 devel/libusb-devel
 py27-distribute                @0.6.24         python/py-distribute
-py27-lint                      @0.24.0         python/py27-lint
-py27-logilab-astng             @0.22.0         python/py27-logilab-astng
-py27-logilab-common            @0.56.0         python/py27-logilab-common
 python27                       @2.7.2          lang/python27
 python_select                  @0.3            sysutils/python_select
 readline                       @6.2.000        devel/readline
@@ -19,23 +16,9 @@ swig                           @2.0.4          devel/swig
 swig-python                    @2.0.4          devel/swig
 
 Manually installed:
-pyfits-3.0.5
-libusb
-    cd libusb
-    ./build.sh
-libccd
+pyfits using pypi.org
+numpy using pypi.org
+libusb from source
+libccd from source
 
-1) install Mac Port package:
-http://www.macports.org/
-
-2) as root
-    a) port selfupdate
-    b) port install 
-
-3) cd extern/
-    as user, configure and build pyfits, libusb
-    as root, install pyfits
-    as user, install libusb
-    as user, install libccd
-4) 
-    
+Execute build.sh at the top of src/
