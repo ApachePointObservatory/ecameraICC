@@ -27,4 +27,4 @@ def DEBUG(message, level=0):
     if level > DEBUG_LEVEL:
         return
     #syslog.syslog(message.strip())
-    logging.debug(datetime.datetime(2000,1,1).isoformat() + ' ' + message)
+    logging.debug(datetime.datetime(2000,1,1).now().isoformat() + ' ' + message)
