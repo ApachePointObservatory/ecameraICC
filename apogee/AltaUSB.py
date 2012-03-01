@@ -18,7 +18,7 @@ from apogeeUSB import CApnCamera
 logging.basicConfig(filename='/tmp/ecamera.log',level=logging.DEBUG)
 
 def DEBUG(message, level=0):
-    logging.debug(datetime.datetime(2000,1,1).isoformat() + ' ' + message)
+    logging.debug(datetime.datetime(2000,1,1).now().isoformat() + ' ' + message)
     return
 
 class AltaUSB(CApnCamera):

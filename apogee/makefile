@@ -42,9 +42,8 @@ _apogeeUSB.so: CamData
 	$(CC) $(CPPFLAGS) $(ALTAINC) -c apogeeUSB_wrap.cxx
 	$(CC) $(LDFLAGS) apogeeUSB_wrap.o ApnCamera.o ApnCamera_USB.o \
             ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o \
-            /opt/local/lib/libusb.a \
             ApogeeUsbUpload.o ApnCamera_Linux.o \
-            -o _apogeeUSB.so -lccd \
+            -o _apogeeUSB.so -lccd -lusb \
             -framework CoreFoundation -framework IOKit
 
 
@@ -53,19 +52,21 @@ install: $(CONFIGTARGETS) FORCE
 
 clean:
 	rm -f tags TAGS .make.state .nse_depinfo *.o *.dylib *.so *.a *.pyc \
-    *wrap.c* test_altau
+    *wrap.c* test_altau test
 
 tags:
 	ctags $(LIBSOURCES)
 
 FORCE:
 
+test_usb:
+	gcc -I/opt/local/include -o test test.c -L/opt/apogee/lib -lusb -framework CoreFoundation -framework IOKit
 
-test:
+
+test_alta:
 	g++ -I/opt/apogee/include  test_alta.cpp -IFpgaRegs -o test_altau \
 	ApnCamera.o ApnCamera_Linux.o ApnCamera_USB.o  ApogeeUsbUpload.o \
 	ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o \
-    /opt/local/lib/libusb.a \
 	-L/opt/local/lib -L/opt/apogee/lib \
-	-ltcl8.3 -lccd  -lcfitsio \
+	-ltcl8.3 -lccd  -lcfitsio -lusb \
 	-framework CoreFoundation -framework Tcl -framework IOKit
