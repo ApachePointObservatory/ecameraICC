@@ -70,3 +70,10 @@ test_alta:
 	-L/opt/local/lib -L/opt/apogee/lib \
 	-ltcl8.3 -lccd  -lcfitsio -lusb \
 	-framework CoreFoundation -framework Tcl -framework IOKit
+
+test_1:
+	g++ -I/opt/apogee/include  -I/opt/local/include \
+    test_alta.cpp -IFpgaRegs -o test_altau \
+    ApnCamera.o ApnCamera_Linux.o ApnCamera_USB.o  ApogeeUsbUpload.o \
+    ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o -L/opt/apogee/lib \
+    -L/opt/local/lib -lccd  -lusb -lcfitsio -framework CoreFoundation -framework IOKit
