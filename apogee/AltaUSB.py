@@ -100,6 +100,18 @@ class AltaUSB(CApnCamera):
         # Turn off LEDs
         self.write_LedMode(0)
 
+        # Set the default I/O ports 
+        # 2nd bit is shutter pulse out, setting it means to use the
+        # default port
+        # register 50 sets I/O direction
+        # register 51 sets port assignments
+        #   Bit  5        4        3      2       1       0
+        #   Pin Gen 6   Gen 5   Gen 4   Gen 3   Gen 2   Gen 1
+        #   Timer Pause In  Ext Readout Start   Ext Shutter In  Shutter
+        #   strobe out  Shutter out Trigger In
+
+        self.write_IoPortAssignment(2)
+
         DEBUG('return from doInit')
         return self.ok
     
@@ -258,6 +270,8 @@ class AltaUSB(CApnCamera):
         
     def _expose(self, itime, openShutter, filename):
         ''' Take an exposure.
+
+        Does not catch exceptions but lets them go up to the next level.
 
         Args:
             itime        - seconds
