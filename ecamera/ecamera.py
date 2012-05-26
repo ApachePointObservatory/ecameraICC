@@ -35,10 +35,16 @@ class ECamera:
         self.reply = ''
         self.read_config()
         self.image_number = 0
-        self.image_number_init()
-
+        try:
+            self.image_number_init()
+        except:
+            DEBUG(format_exc())
+            sys.stdout.write(format_exc() + END_OF_LINE)
+            sys.stdout.flush()
+            
         # software setup, now be sure hardware is set right
-        self.alta_usb.setCooler(self.temperature)
+        if self.alta_usb:
+            self.alta_usb.setCooler(self.temperature)
 
     def _init(self, unused):
         '''
@@ -49,6 +55,8 @@ class ECamera:
     def image_number_init (self):
         '''
         setup image number
+
+        throws exceptions if NFS file system has crashed
         '''
         filename = os.path.join(self.image_directory,'last.image')
         try:
@@ -88,6 +96,9 @@ class ECamera:
     def image_number_write(self):
         '''
         write image_number to last.image
+
+        Exceptions:
+            NFS errors
         '''
         filename = os.path.join(self.image_directory, self.image_name)
         filename = filename % (self.image_number)
@@ -121,6 +132,7 @@ class ECamera:
             self.image_directory = os.path.expandvars(self.image_directory)
             self.image_name = config.get('ecamera','image name')
         except:
+            # This should not happen!  It is a broken configuration
             DEBUG(format_exc())
     
     def _image_info(self):
@@ -211,6 +223,11 @@ class ECamera:
             raise Exception('Camera Error')
 
     def doread(self, line):
+        '''
+        Exceptions
+            Camera Error from _setup_image()
+            NFS errors
+        '''
 
         self.reply = ''
 
@@ -220,8 +237,8 @@ class ECamera:
             self.reply = self.reply + OKAY + END_OF_LINE
             return self.reply
 
-        filename = self.image_number_write()
         try:
+            filename = self.image_number_write()
             self._setup_image(line)
             self.alta_usb.expose(self.integration, filename)
             self.last_image = self.image_number
@@ -229,8 +246,8 @@ class ECamera:
             if self.image_number > self.image_wrap:
                 self.image_number = 0
         except:
-            if self.alta_usb:
-                self.alta_usb = None
+            #if self.alta_usb:
+            #    self.alta_usb = None
             DEBUG(format_exc(), 0);
         DEBUG('image number now %s' % (self.image_number))
         return self.reply
@@ -271,6 +288,11 @@ class ECamera:
         return self.reply
 
     def dodark(self, line):
+        '''
+        Exceptions
+            Camera Error from _setup_image()
+            NFS errors
+        '''
         self.reply = ''
 
         if not self.alta_usb:
@@ -279,8 +301,8 @@ class ECamera:
             self.reply = self.reply + OKAY + END_OF_LINE
             return self.reply
 
-        filename = self.image_number_write()
         try:
+            filename = self.image_number_write()
             self._setup_image(line)
             self.alta_usb.dark (self.integration, filename)
             self.last_image = self.image_number
@@ -289,9 +311,57 @@ class ECamera:
                 self.image_number = 0
         except:
             DEBUG(format_exc(), 0);
-            if self.alta_usb:
-                self.alta_usb = None
+            #if self.alta_usb:
+            #    self.alta_usb = None
         return self.reply
+
+    def status(self, line):
+        if not self.alta_usb:
+            return 'ERROR' + END_OF_LINE
+        reply = ''
+        self.alta_usb.coolerStatus()
+        ccd_temp = self.alta_usb.read_TempCCD()
+        reply += 'temp=%f' % (ccd_temp)
+        reply += OKAY + END_OF_LINE
+        return reply
+
+    def expose(self, line):
+        '''
+        Return ERROR or OK
+
+expose exptime=1.0 bin=1,1 offset=79,120 size=189,189 filename=/export/images/ecam/UT120428/e0012.fits
+
+>>> obj=re.search('expose (exptime=\d+\.\d+) (bin=\d+,\d+) (offset=\d+,\d+)
+>>> (size=\d+,\d+).*',abc)
+>>> obj.groups()
+('exptime=1.0', 'bin=1,1', 'offset=79,120', 'size=189,189')
+>>> obj.group(0)
+'expose exptime=1.0 bin=1,1 offset=79,120 size=189,189
+filename=/export/images/ecam/UT120428/e0012.fits'
+>>> obj.group(1)
+'exptime=1.0'
+>>> exec(obj.group(1))
+>>> exptime
+1.0
+>>> for group in obj.groups():
+...     print group
+... 
+exptime=1.0
+bin=1,1
+offset=79,120
+size=189,189
+>>>     
+
+        '''
+        reply = OKAY + END_OF_LINE
+        return reply
+
+    def dark(self, line):
+        '''
+        Return ERROR or OK
+        '''
+        reply = OKAY + END_OF_LINE
+        return reply
 
 DEBUG('create ecamera!')
 
@@ -300,11 +370,16 @@ ecamera = ECamera()
 DEBUG('ecamera created')
 
 commands = {
+    # tcc camera interface
     'doread' :  ecamera.doread,
     'dodark':   ecamera.dodark,
     'init':     ecamera._init,
     'setcam':   ecamera.setcam,
-    'showstatus': ecamera.showstatus
+    'showstatus': ecamera.showstatus,
+    # newer camera interface
+    'status':   ecamera.status,
+    'expose':   ecamera.expose,
+    'dark':     ecamera.dark
     }
 
 def parse_line(parts):
