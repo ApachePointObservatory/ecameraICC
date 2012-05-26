@@ -50,6 +50,8 @@
 #include "ApnCamera.h"
 #include "ccd.h"
 
+#define printerror(s)
+
 int parse_options (int argc, char **argv);
 int saveimage(unsigned short *src_buffer, char *filename, short nx, short ny);
 int dobiassubtract(unsigned short *src,unsigned short *dest, int nx, int ny);
