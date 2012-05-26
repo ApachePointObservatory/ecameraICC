@@ -12,7 +12,7 @@ import logging
 import datetime
 
 # do i need to protect against multiple imports?
-logging.basicConfig(filename='/tmp/ecamera.log', level=logging.DEBUG)
+logging.basicConfig(filename='/tmp/ecamera.log', filemode='a', level=logging.DEBUG)
 
 DEBUG_ERROR = 0
 DEBUG_WARN = 1
