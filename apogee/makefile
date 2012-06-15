@@ -62,6 +62,8 @@ FORCE:
 test_usb:
 	gcc -I/opt/local/include -o test test.c -L/opt/apogee/lib -lusb -framework CoreFoundation -framework IOKit
 
+reset_apogee_usb: reset_apogee_usb.c
+	gcc -I/opt/local/include -o reset_apogee_usb reset_apogee_usb.c -L/opt/apogee/lib -lusb -framework CoreFoundation -framework IOKit
 
 test_alta:
 	g++ -I/opt/apogee/include  test_alta.cpp -IFpgaRegs -o test_altau \

@@ -37,10 +37,37 @@ struct usb_dev_handle *hDevice;
 int ApnUsbReadReg( unsigned short FpgaReg, unsigned short *FpgaData );
 int ApnUsbWriteReg( unsigned short FpgaReg, unsigned short FpgaData );
 
+void resetUSB(usb_dev_handle *devh) {
+    int rc;
+    int bpoint = 0;
+
+    do {
+        sleep(1);
+        rc = usb_reset(devh);
+        printf ("usb_reset rc is %d\n", rc);
+
+        if ((bpoint % 10) == 0) {
+            printf(".");
+        }
+
+        ++bpoint;
+
+        if (bpoint > 100) {
+            rc = 1;
+        }
+    } while (rc < 0);
+
+    if (rc) {
+        printf("\nreset usb device failed:%d\n", rc);
+    } else {
+        printf("\nreset usb device ok\n");
+    }
+}
 
 int main(int argc,char **argv)
 {
 	char deviceName[128];
+    int rc;
 	struct usb_bus *bus;
 	struct usb_device *dev;
         int Success;
@@ -75,8 +102,11 @@ int main(int argc,char **argv)
 
     printf("found %d\n", found);
 	if (!found) return -1;
-/*	if (!usb_set_configuration(hDevice, 0x1)) return -1; */
-/*	if (!usb_claim_interface(hDevice, 0x0)) return -1;  */
+	rc = usb_set_configuration(hDevice, 0x1);
+    printf("usb set configuration return code %d\n", rc);
+	rc = usb_claim_interface(hDevice, 0x0);
+    printf("usb claim interface return code %d\n", rc);
+    resetUSB(hDevice);
   
 	printf("DRIVER: opened device\n");
         FpgaReg = 53;

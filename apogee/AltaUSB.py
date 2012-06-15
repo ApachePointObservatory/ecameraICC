@@ -2,6 +2,24 @@
 Interface to Apogee USB Camera
 
 NOTE: The chip appears to be rotated 90 degrees.  Hence, the flip = True flag
+
+exposureState="state",t-total,t-remaining where state during this command 
+    should be either "done" or "aborted"
+
+exposureState="state",time,time-remaining
+    state is one of: 
+        reading,integrating,processing,done,aborting,aborted 
+
+    time is a double value indicating estimated time for completion of this 
+    state 
+
+    time-remaining is a double value expressing remaining time in this 
+    task.  if exposureState is returned as done, and the command failed, the 
+    response will be preceeded by an informational response with the error 
+    message associated with the failure.
+
+abort
+
 '''
 __all__ = ['AltaUSB']
 
@@ -12,10 +30,36 @@ import datetime
 import os
 import logging
 from traceback import format_exc
+from threading import Thread
 
 from apogeeUSB import CApnCamera
 
+# from Apogee.h
+Apn_Status_DataError = -2
+Apn_Status_PatternError	 = -1
+Apn_Status_Idle	= 0
+Apn_Status_Exposing  = 1
+Apn_Status_ImagingActive  = 2
+Apn_Status_ImageReady  = 3
+Apn_Status_Flushing  = 4
+Apn_Status_WaitingOnTrigger = 5
+Apn_Status_ConnectionError = 6
+
+Apn_Status_Names = {
+    Apn_Status_DataError:'Apn_Status_DataError',
+    Apn_Status_PatternError:'Apn_Status_PatternError',
+    Apn_Status_Idle:'Apn_Status_Idle',
+    Apn_Status_Exposing:'Apn_Status_Exposing',
+    Apn_Status_ImagingActive:'Apn_Status_ImagingActive',
+    Apn_Status_ImageReady:'Apn_Status_ImageReady',
+    Apn_Status_Flushing:'Apn_Status_Flushing',
+    Apn_Status_WaitingOnTrigger:'Apn_Status_WaitingOnTrigger',
+    Apn_Status_ConnectionError:'Apn_Status_ConnectionError',
+}
+
 logging.basicConfig(filename='/tmp/ecamera.log',level=logging.DEBUG)
+END_OF_LINE = '\r\n'
+OKAY = ' OK'
 
 def DEBUG(message, level=0):
     logging.debug(datetime.datetime(2000,1,1).now().isoformat() + ' ' + message)
@@ -31,6 +75,7 @@ class AltaUSB(CApnCamera):
         ''' 
         Connect to a camera, initialize it. 
         '''
+        # reset the USB
 
         CApnCamera.__init__(self)
 
@@ -57,10 +102,13 @@ class AltaUSB(CApnCamera):
         ''' Single point to call before communicating with the camera. '''
         
         if not self.connected:
+            DEBUG('Alta camera device not available')
             raise RuntimeError("Alta camera device not available")
         if not self.present:
+            DEBUG('Alta camera failed to init defaults')
             raise RuntimeError("Alta camera failed to init defaults")
         if not self.ok:
+            DEBUG('Alta camera init failed')
             raise RuntimeError("Alta camera init failed")
         
     def doOpen(self):
@@ -84,7 +132,8 @@ class AltaUSB(CApnCamera):
         self.present = False
 
         state = self.read_ImagingStatus()
-        DEBUG('doInit: ok %d, image status %d\n' % (self.ok, state))
+        DEBUG('doInit: ok %d, image status %s\n' % \
+            (self.ok, Apn_Status_Names[state]))
 
         result = self.InitDefaults()
         DEBUG('doInit, init defaults result %s\n' % (result))
@@ -110,6 +159,7 @@ class AltaUSB(CApnCamera):
         #   Timer Pause In  Ext Readout Start   Ext Shutter In  Shutter
         #   strobe out  Shutter out Trigger In
 
+        # enable external shutter
         self.write_IoPortAssignment(2)
 
         DEBUG('return from doInit')
@@ -127,10 +177,7 @@ class AltaUSB(CApnCamera):
         heatsinkTemp = self.read_TempHeatsink()
         fan = self.read_FanMode()
         
-        #return "cooler=%0.1f,%0.1f,%0.1f,%0.1f,%d,%d" % (setpoint,
-        return \
-"setpoint %0.1f, ccd %0.1f,heatsink %0.1f, drive %0.1f,fan %d,status %d" \
-            % (setpoint, ccdTemp, heatsinkTemp, drive, fan, status)
+        return (setpoint, ccdTemp, heatsinkTemp, drive, fan, status)
 
     def setCooler(self, setPoint):
         ''' Set the cooler setpoint.
@@ -263,6 +310,14 @@ class AltaUSB(CApnCamera):
         
     def expose(self, itime, filename=None):
         return self._expose(itime, True, filename)
+    def new_expose(self, callback, itime, filename=None):
+        self._expose_thread = Thread(
+            target=self._new_expose,args=(callback, itime, True, filename)
+        )
+        self._expose_thread.start()
+        DEBUG('expose started, now wait for done')
+        self._expose_thread.join()
+        DEBUG('expose thread done')
     def dark(self, itime, filename=None):
         return self._expose(itime, False, filename)
     def bias(self, filename=None):
@@ -289,18 +344,19 @@ class AltaUSB(CApnCamera):
         self.__checkSelf()
 
         state = self.read_ImagingStatus()
-        DEBUG('_expose: image status %d\n' % (state))
+        DEBUG('_expose: image status %s\n' % (Apn_Status_Names[state]))
 
         # Is the camera alive and flushing?
         for i in range(2):
             state = self.read_ImagingStatus()
-            if state == 4:
+            if state == Apn_Status_Flushing:
                 break
-            # print "starting state=%d, RESETTING" % (state)
+            # print "starting state=%s, RESETTING" % (Apn_Status_Names[state])
             self.ResetSystem()
 
-        if state != 4 or state < 0: 
-            raise RuntimeError("bad imaging state=%d" % (state))
+        if state != Apn_Status_Flushing or state < 0: 
+            raise RuntimeError("bad imaging state=%s" % \
+                (Apn_Status_Names[state]))
 
         d = {}
 
@@ -321,15 +377,15 @@ class AltaUSB(CApnCamera):
             now = time.time()
             state = self.read_ImagingStatus()
             if state < 0: 
-                raise RuntimeError("bad state=%d" % (state))
-            if state == 3:
+                raise RuntimeError("bad state=%s" % (Apn_Status_Names[state]))
+            if state == Apn_Status_ImageReady:
                 break
-            DEBUG("state=%d time=%0.2f waiting to read" % \
-                (state, now - (start + itime)))
+            DEBUG("state=%s time=%0.2f waiting to read" % \
+                (Apn_Status_Names[state], now - (start + itime)))
             time.sleep(0.1)
 
         if i == 0:
-            raise RuntimeError("bad state=%d" % (state))
+            raise RuntimeError("bad state=%s" % (Apn_Status_Names[state]))
 
         if openShutter:
             fitsType = 'obj'
@@ -349,7 +405,7 @@ class AltaUSB(CApnCamera):
         t1 = time.time()
 
         state = self.read_ImagingStatus()
-        DEBUG("state=%d readoutTime=%0.2f" % (state, t1-t0))
+        DEBUG("state=%s readoutTime=%0.2f" % (Apn_Status_Names[state], t1-t0))
 
         d['iTime'] = itime
         d['type'] = fitsType
@@ -367,6 +423,129 @@ class AltaUSB(CApnCamera):
 
         return d
 
+    def _new_expose(self, callback, itime, openShutter, filename):
+        ''' Take an exposure.
+
+        Does not catch exceptions but lets them go up to the next level.
+
+        Args:
+            itime        - seconds
+            openShutter  - True to open the shutter.
+            filename     - a full pathname. If None, the image is returned
+
+        Returns:
+            dict         - size:     (width, height)
+                           type:     FITS IMAGETYP
+                           iTime:    integration time
+                           filename: the given filename, or None
+                           data:     the image data as a string, or None if saved to a file.
+        '''
+
+        d = {}
+
+        try:
+            self.__checkSelf()
+    
+            state = self.read_ImagingStatus()
+            DEBUG('_new_expose: start new expose, imaging status %s\n' % (Apn_Status_Names[state]))
+    
+            # Is the camera alive and flushing?
+            for i in range(2):
+                state = self.read_ImagingStatus()
+                if state == Apn_Status_Flushing:
+                    break
+                # print "starting state=%s, RESETTING" %
+                #       (Apn_Status_Names[state])
+                self.ResetSystem()
+    
+            if state != Apn_Status_Flushing or state < 0: 
+                callback('error - bad state %s' % (Apn_Status_Names[state]), 0.0, 0.0)
+                return
+    
+            # Block while we expose. But sleep if we have to wait a long time.
+            # And what is the flush time of this device?
+            start = time.time()
+            itime = float(itime)
+            self.Expose(itime, openShutter)
+            while 1:
+                now = time.time()
+                callback('integrating',itime,itime-(now-start))
+                # if itime > 0.25, try repeating message at 1 seconds
+                delay = (itime - (now - start))
+                delay -= 0.25
+                delay = min(delay, 1.0)
+                #DEBUG('_new_expose: delay %d\n' % (delay))
+                if delay < 0:   # delay < 0.25 seconds
+                    break
+                time.sleep(delay)
+    
+            # We are close to the end of the exposure. Start polling the camera
+            i = 50
+            while i > 0:
+                i -= 1
+                now = time.time()
+                state = self.read_ImagingStatus()
+                if state < 0: 
+                    callback('error - bad state %s' % (Apn_Status_Names[state]), 0.0, 0.0)
+                if state == Apn_Status_ImageReady:
+                    break
+                DEBUG("_new_expose: state=%s time=%0.2f waiting to read" % \
+                    (Apn_Status_Names[state], now - (start + itime)))
+                time.sleep(0.1)
+    
+            DEBUG('done waiting for image, delay %d, i %d, state %s' %\
+                (delay, i, Apn_Status_Names[state]));
+            # good as done, send 0
+            callback('integrating', itime, 0)
+    
+            if i == 0:
+                callback('error', 0.0, 0.0)
+                raise RuntimeError("bad state=%s" % (Apn_Status_Names[state]))
+    
+            if openShutter:
+                fitsType = 'obj'
+            elif itime == 0:
+                fitsType = 'zero'
+            else:
+                fitsType = 'dark'
+    
+            # I _think_ this is the right way to get the window size...
+            #h = self.m_pvtExposurePixelsV
+            #w = self.m_pvtExposurePixelsH
+    
+            t0 = time.time()
+            callback('reading', 0.1, 0.1)
+            image = self.fetchImage()
+            t1 = time.time()
+            state = self.read_ImagingStatus()
+            DEBUG("readout done, state=%s readoutTime=%0.2f" % \
+                (Apn_Status_Names[state], t1-t0))
+            callback('reading', 0.1, 0.0)
+            DEBUG("fetch done")
+    
+            #state = self.read_ImagingStatus()
+            #DEBUG("after callback, state=%s readoutTime=%0.2f" % \
+            #    (Apn_Status_Names[state], t1-t0))
+    
+            d['iTime'] = itime
+            d['type'] = fitsType
+            d['startTime'] = start
+            d['data'] = image
+            d['filename'] = filename
+            callback('writing', 0.02, 0.0)
+    
+            DEBUG("filename is ...%s..." % (filename))
+            if filename:
+                try:
+                    DEBUG("write fits")
+                    self.WriteFITS(d)
+                except:
+                    DEBUG(format_exc())
+            callback('done', 0.0, 0.0)
+        except:
+            DEBUG('exception: %s' % (format_exc()))
+
+        return d
  
     def fetchImage(self):
         ''' Return the current image. '''
@@ -375,15 +554,13 @@ class AltaUSB(CApnCamera):
         h = self.GetExposurePixelsV()
         w = self.GetExposurePixelsH()
  
-        DEBUG("create image w %d, h %d" % (w, h))
         image = np.ndarray((w, h), dtype='uint16')
-        DEBUG("fill image buffer")
         self.FillImageBuffer(image)
-        DEBUG("return image")
- 
+
         image = image.reshape(h, w)
         if self.flip:
             image = np.rot90(image)
+
         return image
 
 
@@ -440,6 +617,7 @@ class AltaUSB(CApnCamera):
         os.chmod(filename, 0666)
 
 if __name__ == "__main__":
+    reply = os.popen('/Users/shack/bin/apogee_usb_reset').readlines()
     alta = AltaUSB()
     print alta.coolerStatus()
     alta.setCooler(15.0)
