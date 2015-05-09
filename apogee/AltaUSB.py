@@ -36,8 +36,8 @@ from apogeeUSB import CApnCamera
 
 # from Apogee.h
 Apn_Status_DataError = -2
-Apn_Status_PatternError	 = -1
-Apn_Status_Idle	= 0
+Apn_Status_PatternError = -1
+Apn_Status_Idle = 0
 Apn_Status_Exposing  = 1
 Apn_Status_ImagingActive  = 2
 Apn_Status_ImageReady  = 3
@@ -352,7 +352,12 @@ class AltaUSB(CApnCamera):
             if state == Apn_Status_Flushing:
                 break
             # print "starting state=%s, RESETTING" % (Apn_Status_Names[state])
-            self.ResetSystem()
+            #self.ResetSystem()
+            self.CloseDriver()
+            self.SimpleInitDriver(1, 0, 0)
+            DEBUG('starting state=%s, calling ResetSystem' % \
+                (Apn_Status_Names[state]))
+            #self.doInit(0)
 
         if state != Apn_Status_Flushing or state < 0: 
             raise RuntimeError("bad imaging state=%s" % \
@@ -456,7 +461,12 @@ class AltaUSB(CApnCamera):
                     break
                 # print "starting state=%s, RESETTING" %
                 #       (Apn_Status_Names[state])
-                self.ResetSystem()
+                DEBUG('starting state=%s, calling ResetSystem' % \
+                    (Apn_Status_Names[state]))
+                #self.ResetSystem()
+                self.CloseDriver()
+                self.SimpleInitDriver(1, 0, 0)
+                #self.doInit(0)
     
             if state != Apn_Status_Flushing or state < 0: 
                 callback('error - bad state %s' % (Apn_Status_Names[state]), 0.0, 0.0)
@@ -593,6 +603,13 @@ class AltaUSB(CApnCamera):
         hdr = hdu.header
 
         uttime, utdate = self.getTS(d['startTime'])
+        '''
+            DATE-OBS= '2013-06-28 19:32:11.580Z'
+            UTTIME  = '19:37:54'           / UT Time CCD was read                           
+            UTDATE  = '2013/06/28'         / UT Date CCD was read   
+        '''
+        utdate = utdate.replace('/','-')
+        date_obs = '%s %sZ' % (utdate, uttime)
         hdr.update('BSCALE', 1.0)
         hdr.update('BZERO', 32768.0)
         hdr.update('BEGX', self.x0+1)
@@ -605,8 +622,7 @@ class AltaUSB(CApnCamera):
         hdr.update('CAMNAME', 'USB Apogee Camera', 'Camera used for this image')
         hdr.update('CAMID', 1)
         hdr.update('CAMTEMP', self.read_TempCCD(), 'degrees C')
-        hdr.update('UTTIME', uttime, 'UT Time CCD was read')
-        hdr.update('UTDATE', utdate, 'UT Date CCD was read')
+        hdr.update('DATE-OBS', date_obs, 'TAI Date-Time CCD was read')
 
         # pyfits now does the right thing with uint16
         hdu.writeto(filename)
