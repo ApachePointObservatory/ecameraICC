@@ -1,4 +1,15 @@
 This is the svn://Ecamera/trunk tree.
 
-I need to reorganize it to move the tags from trunk/ to 
-the svn://Ecamera/tags
+The camera is a service, port 30001.  On OS X, the startup script is put
+into /Library/LaunchDaemons
+
+Then, the user telnets to the computer, port 30001, and commands the camera
+
+init
+setcam 1
+doread 1.00 1 1 256.00 256.00 512.00 512.00
+    exposure time in seconds
+    binx, biny, center x, center y, length x, length y
+
+    this rights an image into the directory pointed to by
+    $HOME/config/ecamera.ini

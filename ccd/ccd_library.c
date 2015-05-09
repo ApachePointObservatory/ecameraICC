@@ -4,10 +4,13 @@
    Date   : 20 Dec 2000
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <sys/shm.h>
+
+#include "fitsio.h"
 
 /* typedef unsigned short *PDATA;  */
 typedef void *PDATA;  
@@ -58,6 +61,7 @@ int     last_vbin = 1;
 
 PDATA CCD_locate_buffer(char *name, int idepth, short imgcols, short imgrows, short hbin, short vbin);
 int   CCD_free_buffer();
+int   CCD_locate_buffernum(char *name);
 
 PDATA CCD_locate_buffer(char *name, int idepth, short imgcols, short imgrows, short hbin, short vbin)
 {
@@ -118,6 +122,28 @@ PDATA CCD_locate_buffer(char *name, int idepth, short imgcols, short imgrows, sh
      return(bptr);
 }
 
+
+int CCD_locate_buffernum(char *name)
+{
+     int found;
+     int i;
+
+     found = -1;
+     i = 0;
+
+     while (found<0 && i<MAX_CCD_BUFFERS) {
+
+       if (CCD_Frame[i].pixels != NULL) {
+         if (strcmp(name,CCD_Frame[i].name) == 0) {
+            found = i;
+         }
+       }
+       i++;
+     }
+
+     return(found);
+}
+
 int CCD_free_buffer(char *name)
 {
   
@@ -149,3 +175,21 @@ int CCD_free_buffer(char *name)
      }
      return(0);
 }
+
+
+int printerror( int status)
+{
+    /*****************************************************/
+    /* Print out cfitsio error messages and exit program */
+    /*****************************************************/
+
+
+    if (status)
+    {
+       fits_report_error(stderr, status); /* print error report */
+
+       exit( status );    /* terminate the program, returning error status */
+    }
+    return 0;
+}
+

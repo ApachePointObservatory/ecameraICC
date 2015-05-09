@@ -43,7 +43,7 @@ GUIINC          = /opt/apogee/include
 CFLAGS 		+= -pipe -O2 -g -D$(MACHINE)  -DLINUX -Wall  -I$(TCLSRC) -I$(TKSRC)     
 
 
-CPPFLAGS	= -I/usr/local/include -I$(INCDIR) -I$(GUIINC) -DVER=\"$(V).$(MV)\"
+CPPFLAGS	= -I/opt/local/include -I$(INCDIR) -I$(GUIINC) -DVER=\"$(V).$(MV)\"
 
 INCLUDES =	
 
@@ -60,7 +60,7 @@ SHAREDLIBDIR=Shared
 
 #CONFIGPIC		= -fPIC
 CONFIGPIC		=
-CONFIGSHAREDLIBLD	= g++ -dynamiclib -o $(LNAME)_$(M).dylib.$(V).$(MV) $?
+CONFIGSHAREDLIBLD	= g++ -dynamiclib -L/opt/local/lib -lcfitsio -o $(LNAME)_$(M).dylib.$(V).$(MV) $?
 #CONFIGSHAREDLIBLD	= g++ -dynamiclib libccd.dylib $?
 
 CONFIGTARGETS		= $(SHAREDLIB)

@@ -22,3 +22,34 @@ libusb from source
 libccd from source
 
 Execute build.sh at the top of src/
+
+DEBUGGING:
+
+A file is written in /tmp/ecamera.log that shows the software's debugging log.
+
+To test the USB, go to apogee, "make test_usb", and execute "./test".  It
+should printout some numbers like this.
+shack:apogee shack$ ./test
+find devices done
+found 1
+DRIVER: opened device
+DRIVER: usb write reg=53 data=a55a
+DRIVER: usb read reg=53 data=a55a
+DRIVER: usb write reg=53 data=5aa5
+DRIVER: usb read reg=53 data=5aa5
+DRIVER: usb read reg=90 data=ffc0
+DRIVER: usb read reg=91 data=c018
+DRIVER: usb read reg=92 data=ffff
+DRIVER: usb read reg=93 data=0519
+DRIVER: usb read reg=94 data=0734
+DRIVER: usb read reg=95 data=f28d
+DRIVER: usb read reg=96 data=0aca
+DRIVER: usb read reg=97 data=ffff
+DRIVER: usb read reg=2 data=3064
+DRIVER: usb read reg=3 data=0080
+DRIVER: usb write reg=2 data=2000
+DRIVER: usb read reg=91 data=c118
+shack:apogee shack$ 
+
+If the USB is working, you can then run the ecamera software manually and enter
+the commands to standard input, and the results are written to standard output.
