@@ -26,6 +26,25 @@ OKAY = ' OK'
 
 class ECamera:
     def __init__(self):
+        self.image_name = 'gimg%04d.fits'
+        self.image_directory = '/export/images/forTron/guider'
+        self.image_wrap = 9999
+        self.x0 = self.y0 = 0
+        self.temperature = 0.0
+        self.last_image = None
+        self.integration = 0.0
+        self.ny = self.nx = 512
+        self.max_bin_x = 8
+        self.max_bin_y = 512
+        self.name = 'Alta U77'
+        self.sizex = 512
+        self.sizey = 512
+        self.biny = 1
+        self.binx = 1
+        self.noise_units = 'electrons/sec/pixel'
+        self.dark_current_units = 'electrons/sec/pixel'
+        self.noise = 14
+        self.dark_current = 0.8
         
         try:
             self.alta_usb = AltaUSB.AltaUSB()
@@ -188,18 +207,25 @@ class ECamera:
             self.binx = int(binx)
             self.biny = int(biny)
             # assume ctr, size values are binned pixels
-            self.ctrx = float(ctrx)*self.binx
-            self.ctry = float(ctry)*self.biny
+            ctrx = float(ctrx)*self.binx
+            ctry = float(ctry)*self.biny
             self.sizex = self._iround(float(sizex)*self.binx)
             self.sizey = self._iround(float(sizey)*self.biny)
+            # check for zero sized image.  happens with tcc gcam doread
+            if self.sizex <= 0:
+                self.sizex = ctrx * 2
+            if self.sizey <= 0:
+                self.sizey = ctry * 2
             # x0, y0 are unbinned pixels
-            self.x0 = self._iround (self.ctrx - self.sizex / 2)
+            self.x0 = self._iround (ctrx - self.sizex / 2)
             if self.x0 < 0:
+                # should adjust sizex too!
                 self.x0 = 0
-            self.y0 = self._iround (self.ctry - self.sizey / 2)
+            self.y0 = self._iround (ctry - self.sizey / 2)
             if self.y0 < 0:
+                # should adjust sizey too!
                 self.y0 = 0
-            DEBUG('ctrx %s, sizex/2 %s, x0 %s' % (self.ctrx, self.sizex/2, self.x0))
+            DEBUG('ctrx %s, sizex/2 %s, x0 %s' % (ctrx, self.sizex/2, self.x0))
             # calculate if pixels availalble > size
             x1 = self.nx - self.x0
             if x1 < self.sizex:
@@ -218,7 +244,84 @@ class ECamera:
             self.reply = self._image_info()
             self.reply = self.reply + OKAY + END_OF_LINE
         except:
-            DEBUG(format_exc());
+            DEBUG(format_exc())
+            self.reply = 'ERROR' + END_OF_LINE
+            raise Exception('Camera Error')
+    
+    def _setup_expose_image(self, what, line, filename):
+        '''
+'expose exptime=1.0 bin=1,1 offset=79,120 size=189,189 filename=/export/images/ecam/UT120428/e0012.fits'
+
+        The documentation says that the region of interest, ROI, is
+        defined by an unbinned offset, and then binned rows and columns.
+        
+        INI files settings: columns=530 imgcols=512 bic=4
+
+        a. For a full frame image binned 1:1, the values of BIC_count, 
+           Pixel_count and AIC_count are as follows; 
+
+            BIC_count  = 4 (from ini file)
+            Pixel_count = 512 (from ini file) 
+            AIC_count = 530 - 512 - 4 = 14
+
+
+        b. For a sub-frame image 50 pixels wide located at a column 
+           offset= 100 ccd columns, binned 2:2:
+
+            bic = 4 (from ini file) + 100 = 104 
+            pixel_count = 50 / 2 = 25 
+            aic count = 530 -104 - 50 = 376
+
+        The offsets, x0, y0 are in unbinned pixels.  If no pixels are skipped, 
+        then x0 and y0 are 0, so 0 based
+        '''
+        try:
+            DEBUG('...%s...\n' % (line), 0)
+            bin = 1, 1
+            offset = 0, 0
+            size = 512, 512
+            exptime = 0.0
+            filename = self.image_number_write()
+            #obj = re.search('expose (exptime=\d+\.\d+) (bin=\d+,\d+)\
+            #(offset=\d+,\d+) (size=\d+,\d+) (filename=[a-zA-Z0-9_\.\/]+).*', line)
+            obj = re.search(
+'%s\W+(exptime=\d+\.\d+)\W+(bin=\d+,\d+)\W+(offset=\d+,\d+)\W+(size=\d+\.?\d*,\d+\.?\d*).*' % (what),
+                line)
+            if obj:
+                for group in obj.groups():
+                    exec(group)
+            #DEBUG('exptime %s, bin %s, size %s, offset %s, filename %s' % \
+            #    (str(exptime), str(bin), str(size), str(offset), str(filename)))
+            DEBUG('_setup_expose_image: exptime %s, bin %s, size %s, offset %s' % \
+                (str(exptime), str(bin), str(size), str(offset)))
+            self.integration = exptime
+            self.binx = bin[0]
+            self.biny = bin[1]
+            # assume ctr, size values are binned pixels
+            self.sizex = self._iround(float(size[0])*self.binx)
+            self.sizey = self._iround(float(size[1])*self.biny)
+            # x0, y0 are unbinned pixels
+            self.x0 = offset[0] * self.binx
+            self.y0 = offset[1] * self.biny
+            # calculate if pixels availalble > size
+            x1 = self.nx - self.x0
+            if x1 < self.sizex:
+                self.sizex = x1
+            y1 = self.ny - self.y0
+            if y1 < self.sizey:
+                self.sizey = y1
+            self.sizex = self._iround (self.sizex / self.binx)
+            self.sizey = self._iround (self.sizey / self.biny)
+            DEBUG('_setup_expose_image: set binning to %s, %s\n' % (self.binx, self.biny), 0)
+            self.alta_usb.setBinning(self.binx, self.biny)
+            DEBUG('_setup_expose_image: set window to %s, %s, %s, %s\n' % \
+              (self.x0, self.y0, self.x0 + self.sizex, self.y0 + self.sizey), 0)
+            time.sleep(1)
+            self.alta_usb.setWindow(self.x0, self.y0, self.sizex, self.sizey)
+            self.reply = 'camFile=%s' % (filename) + END_OF_LINE
+            self.reply = self.reply + OKAY + END_OF_LINE
+        except:
+            DEBUG(format_exc())
             self.reply = 'ERROR' + END_OF_LINE
             raise Exception('Camera Error')
 
@@ -232,8 +335,7 @@ class ECamera:
         self.reply = ''
 
         if not self.alta_usb:
-            self.reply = self._image_info() + END_OF_LINE
-            self.reply += 'image: binXY begXY sizeXY expTime camID temp' + END_OF_LINE
+            self.reply = self._image_info()
             self.reply = self.reply + OKAY + END_OF_LINE
             return self.reply
 
@@ -246,9 +348,12 @@ class ECamera:
             if self.image_number > self.image_wrap:
                 self.image_number = 0
         except:
-            #if self.alta_usb:
-            #    self.alta_usb = None
-            DEBUG(format_exc(), 0);
+            # alta_usb.expose error?  wrong state?
+            #
+            # reset pixel processing engines
+            self.alta_usb.ResetSystem()
+            DEBUG(format_exc(), 0)
+            raise Exception('Wrong State')
         DEBUG('image number now %s' % (self.image_number))
         return self.reply
     
@@ -260,7 +365,6 @@ class ECamera:
         if self.alta_usb:
             self.alta_usb.coolerStatus()
             ccd_temp = self.alta_usb.read_TempCCD()
-        self.reply = ''
         self.reply = '1 "USB Apogee Camera" 512 512 16 %.2f %d '
         self.reply = self.reply % (ccd_temp, self.last_image)
         self.reply += "camera: ID# name sizeXY bits/pixel temp last FileNum"
@@ -273,6 +377,12 @@ class ECamera:
     def showstatus(self, line):
         '''
             user function
+showstatus
+1 "PXL1024" 1024 1024 16 -20.89 318 "camera: ID# name sizeXY bits/pixel temp
+lastFileNum"
+1 1 0 0 0 0 nan 0 nan "image: binXY begXY sizeXY expTime camID temp"
+8.00 1000 params: boxSize (FWHM units) maxFileNum
+
         '''
         ccd_temp = 0.0
         if self.alta_usb:
@@ -283,7 +393,9 @@ class ECamera:
         self.reply = self.reply % (ccd_temp, self.last_image)
         self.reply += "camera: ID# name sizeXY bits/pixel temp last FileNum"
         self.reply += END_OF_LINE
-        self.reply += OKAY + END_OF_LINE
+        self.reply += self._image_info()
+        self.reply += '0.00 %d params: boxSize (FWHM units) maxFileNum' % (self.image_wrap)
+        self.reply += END_OF_LINE + OKAY + END_OF_LINE
 
         return self.reply
 
@@ -296,8 +408,7 @@ class ECamera:
         self.reply = ''
 
         if not self.alta_usb:
-            self.reply = self._image_info() + END_OF_LINE
-            self.reply += 'image: binXY begXY sizeXY expTime camID temp' + END_OF_LINE
+            self.reply = self._image_info()
             self.reply = self.reply + OKAY + END_OF_LINE
             return self.reply
 
@@ -310,7 +421,7 @@ class ECamera:
             if self.image_number > self.image_wrap:
                 self.image_number = 0
         except:
-            DEBUG(format_exc(), 0);
+            DEBUG(format_exc(), 0)
             #if self.alta_usb:
             #    self.alta_usb = None
         return self.reply
@@ -319,7 +430,7 @@ class ECamera:
         if not self.alta_usb:
             return 'ERROR' + END_OF_LINE
         reply = ''
-        self.alta_usb.coolerStatus()
+        self.cooler_status = self.alta_usb.coolerStatus()
         ccd_temp = self.alta_usb.read_TempCCD()
         reply += 'temp=%f' % (ccd_temp)
         reply += OKAY + END_OF_LINE
@@ -327,44 +438,69 @@ class ECamera:
 
     def expose(self, line):
         '''
+        offset and size are in binned pixels
+
         Return ERROR or OK
 
-expose exptime=1.0 bin=1,1 offset=79,120 size=189,189 filename=/export/images/ecam/UT120428/e0012.fits
-
->>> obj=re.search('expose (exptime=\d+\.\d+) (bin=\d+,\d+) (offset=\d+,\d+)
->>> (size=\d+,\d+).*',abc)
->>> obj.groups()
-('exptime=1.0', 'bin=1,1', 'offset=79,120', 'size=189,189')
->>> obj.group(0)
-'expose exptime=1.0 bin=1,1 offset=79,120 size=189,189
-filename=/export/images/ecam/UT120428/e0012.fits'
->>> obj.group(1)
-'exptime=1.0'
->>> exec(obj.group(1))
->>> exptime
-1.0
->>> for group in obj.groups():
-...     print group
-... 
-exptime=1.0
-bin=1,1
-offset=79,120
-size=189,189
->>>     
-
+expose exptime=1.0 bin=1,1 offset=79,120 size=189,189 \
+filename=/export/images/ecam/UT120428/e0012.fits
         '''
-        reply = OKAY + END_OF_LINE
-        return reply
+        self.reply = ''
+
+        if not self.alta_usb:
+            # this should be an error
+            self.reply = 'camFile=%s' % (self.image_number_write()) + END_OF_LINE
+            return self.reply
+
+        try:
+            filename = self.image_number_write()
+            self._setup_expose_image('expose', line, filename)
+            DEBUG('ecamera expose: calling new_expose')
+            self.alta_usb.new_expose(sys.stdout, self.integration, filename)
+            # TBD: check that image was written!  then update
+            self.last_image = self.image_number
+            self.image_number = self.image_number + 1
+            if self.image_number > self.image_wrap:
+                self.image_number = 0
+        except:
+            #if self.alta_usb:
+            #    self.alta_usb = None
+            DEBUG(format_exc(), 0)
+        DEBUG('ecamera expose: image number now %s' % (self.image_number))
+        return self.reply
 
     def dark(self, line):
         '''
         Return ERROR or OK
         '''
-        reply = OKAY + END_OF_LINE
-        return reply
+        self.reply = ''
+
+        if not self.alta_usb:
+            # this should be an error
+            self.reply = 'camFile=%s' % (self.image_number_write()) + END_OF_LINE
+            return self.reply
+
+        try:
+            filename = self.image_number_write()
+            self._setup_expose_image('dark', line, filename)
+            self.alta_usb.new_expose(self.integration, filename)
+            # TBD: check that image was written!  then update
+            self.last_image = self.image_number
+            self.image_number = self.image_number + 1
+            if self.image_number > self.image_wrap:
+                self.image_number = 0
+        except:
+            #if self.alta_usb:
+            #    self.alta_usb = None
+            DEBUG(format_exc(), 0)
+        DEBUG('image number now %s' % (self.image_number))
+        return self.reply
 
 DEBUG('create ecamera!')
 
+reply = os.popen('/Users/shack/bin/apogee_usb_reset').readline()
+if reply.find('error') > -1:
+    sys.stdout.write('ecamera error: %s, power cycle and restart nubs' % (reply))
 ecamera = ECamera()
 
 DEBUG('ecamera created')
@@ -422,9 +558,14 @@ def run():
     
         command = buffer.split()[0]
         if command in commands:
-            reply = commands[command](buffer)
-            sys.stdout.write(reply)
-            DEBUG('output:'+reply.strip(), 0)
+            try:
+                reply = commands[command](buffer)
+                if reply:
+                    sys.stdout.write(reply)
+                DEBUG('output:'+reply.strip(), 0)
+            except:
+                # doread can through an exception on USB read
+                sys.stdout.write('ERROR' + END_OF_LINE)
         else:
             sys.stdout.write(OKAY + END_OF_LINE)
             DEBUG('output:' + OKAY, 0)
