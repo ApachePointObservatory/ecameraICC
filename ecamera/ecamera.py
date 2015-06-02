@@ -24,6 +24,12 @@ CONFIG = os.path.join(os.getenv('HOME'),'config/ecamera.ini')
 END_OF_LINE = '\r\n'
 OKAY = ' OK'
 
+#
+# Camera is in wrong state
+#
+class WrongState(Exception):
+    pass
+
 class ECamera:
     def __init__(self):
         self.image_name = 'gimg%04d.fits'
@@ -243,9 +249,18 @@ class ECamera:
             self.alta_usb.setWindow(self.x0, self.y0, self.sizex, self.sizey)
             self.reply = self._image_info()
             self.reply = self.reply + OKAY + END_OF_LINE
+        except WrongState:
+            # the camera timed out somehow - reset it
+            del self.alta_usb
+            # give a little bit of time to let camera get ready?
+            time.sleep(2)
+            self.alta_usb = AltaUSB.AltaUSB()
+            if self.alta_usb:
+                self.alta_usb.setCooler(self.temperature)
+            self.reply = 'RESTART CAMERA' + OKAY + END_OF_LINE
         except:
             DEBUG(format_exc())
-            self.reply = 'ERROR' + END_OF_LINE
+            self.reply = 'ERROR' + OKAY + END_OF_LINE
             raise Exception('Camera Error')
     
     def _setup_expose_image(self, what, line, filename):
@@ -353,7 +368,7 @@ class ECamera:
             # reset pixel processing engines
             self.alta_usb.ResetSystem()
             DEBUG(format_exc(), 0)
-            raise Exception('Wrong State')
+            raise WrongState()
         DEBUG('image number now %s' % (self.image_number))
         return self.reply
     
@@ -564,8 +579,9 @@ def run():
                     sys.stdout.write(reply)
                 DEBUG('output:'+reply.strip(), 0)
             except:
-                # doread can through an exception on USB read
+                # doread can throw an exception on USB read
                 sys.stdout.write('ERROR' + END_OF_LINE)
+                DEBUG('output:' + 'ERROR', 0)
         else:
             sys.stdout.write(OKAY + END_OF_LINE)
             DEBUG('output:' + OKAY, 0)
