@@ -6,23 +6,21 @@
 
 
 DEVHOME		= .
-INSTALL_DIR	= /opt/apogee/lib
-TCLSRC = /opt/apogee/extern/tcl8.3.1/generic
-TKSRC = /opt/apogee/extern/tk8.3.1/generic                                   
+INSTALL_DIR	= /usr/local/apogee/lib
 
 
 
 .KEEP_STATE:
 CC =	g++
-SWIG = /opt/local/bin/swig
+SWIG = /bin/swig
 
 INCDIR		= $(DEVHOME)
 ALTAINC		= -I./ApogeeUsb -I./FpgaRegs -DHAVE_STRERROR
 CPPFLAGS	= -O2 -g -fPIC -DWall -DLINUX -DOSX -I../../include -I. \
-    -I/usr/include/malloc -I/opt/local/include \
-    -I/opt/local/Library/Frameworks/Python.framework/Versions/2.7/include/python2.7 
+    -I/usr/include/malloc -I/usr/include/python2.7 \
+    -I/usr/lib64/python2.7/site-packages/numpy/core/include
 PYSWIGFLAGS = -python -shadow -c++
-LDFLAGS		= -dynamiclib -lpython2.7 -L/opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib -L/opt/local/lib -L/opt/apogee/lib
+LDFLAGS		= -L/usr/local/apogee/lib -shared -O2 -g
 CONFIGTARGETS	= _apogeeUSB.so
 
 all: $(CONFIGTARGETS)
@@ -43,8 +41,8 @@ _apogeeUSB.so: CamData
 	$(CC) $(LDFLAGS) apogeeUSB_wrap.o ApnCamera.o ApnCamera_USB.o \
             ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o \
             ApogeeUsbUpload.o ApnCamera_Linux.o \
-            -o _apogeeUSB.so -lccd -lusb \
-            -framework CoreFoundation -framework IOKit
+            -o _apogeeUSB.so -lccd -lusb -lcfitsio \
+	    -shared -O2 -g
 
 
 install: $(CONFIGTARGETS) FORCE
@@ -60,22 +58,22 @@ tags:
 FORCE:
 
 test_usb:
-	gcc -I/opt/local/include -o test test.c -L/opt/apogee/lib -lusb -framework CoreFoundation -framework IOKit
+	gcc -I/usr/local/include -o test test.c -L/usr/local/apogee/lib -lusb -shared -O2 -g
 
 reset_apogee_usb: reset_apogee_usb.c
-	gcc -I/opt/local/include -o reset_apogee_usb reset_apogee_usb.c -L/opt/apogee/lib -lusb -framework CoreFoundation -framework IOKit
+	gcc -I/usr/local/include -o reset_apogee_usb reset_apogee_usb.c -L/usr/local/apogee/lib -lusb
 
 test_alta:
-	g++ -I/opt/apogee/include  test_alta.cpp -IFpgaRegs -o test_altau \
+	g++ -I/usr/apogee/include  -I/usr/include/cfitsio test_alta.cpp \
+	-IFpgaRegs -o test_altau \
 	ApnCamera.o ApnCamera_Linux.o ApnCamera_USB.o  ApogeeUsbUpload.o \
 	ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o \
-	-L/opt/local/lib -L/opt/apogee/lib \
-	-ltcl8.3 -lccd  -lcfitsio -lusb \
-	-framework CoreFoundation -framework Tcl -framework IOKit
-
+	-L/usr/local/lib -L/usr/local/apogee/lib \
+	-lccd  -lcfitsio -lusb
+#	-ltcl8.3 -lccd  -lcfitsio -lusb
 test_1:
-	g++ -I/opt/apogee/include  -I/opt/local/include \
+	g++ -I/usr/apogee/include  \
     test_alta.cpp -IFpgaRegs -o test_altau \
     ApnCamera.o ApnCamera_Linux.o ApnCamera_USB.o  ApogeeUsbUpload.o \
-    ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o -L/opt/apogee/lib \
-    -L/opt/local/lib -lccd  -lusb -lcfitsio -framework CoreFoundation -framework IOKit
+    ApogeeUsbLinux.o ApnCamData*.o ApnCamTable.o -L/usr/local/apogee/lib \
+    -L/usr/local/lib -lccd  -lusb -lcfitsio -shared -O2 -g

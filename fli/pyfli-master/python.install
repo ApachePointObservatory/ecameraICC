@@ -1,0 +1,7 @@
+running install
+running build
+running build_ext
+running install_lib
+copying build/lib.linux-x86_64-2.7/pyfli.so -> /home/arc/.local/lib/python2.7/site-packages
+running install_egg_info
+Writing /home/arc/.local/lib/python2.7/site-packages/pyfli-0.1-py2.7.egg-info

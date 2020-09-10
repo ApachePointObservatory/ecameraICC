@@ -21,7 +21,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include "usb.h"
-extern int usb_debug;
+// extern int usb_debug;
 
 /*#define HANDLE   unsigned long */
 #define ULONG    unsigned int
@@ -315,7 +315,7 @@ APN_USB_TYPE ApnUsbOpenFilterWheel( unsigned short DevNumber ,  char *SysDeviceN
 	g_hFilterDriver[DevNumber]		= hDevice;
 	g_UsbImgSizeBytes	= 0;
 //	printf("DRIVER: opened device\n");
-        usb_debug = 4;
+//        usb_debug = 4;
 
 	return APN_USB_SUCCESS;		// Success
 }

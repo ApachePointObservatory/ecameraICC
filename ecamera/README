@@ -1,0 +1,12 @@
+20190515 
+Bill Ketzeback Notes:
+
+cp ecamera.py 20190515/.
+cp ecamera_fli.py 20190515/.
+cp ecamera.py ecamera.py~
+cp ecamera_fli.py ecamera.py
+
+modifed ecamera.py to rotate the fli image 270 degrees. 
+The fits header information is incorrect and the subframe is incorrect. 
+
+

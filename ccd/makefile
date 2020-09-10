@@ -14,11 +14,9 @@ MV = 0
 DEVHOME		= .
 LIBDIR		= $(DEVHOME)
 STATICLIBRARY	= $(LIBDIR)/$(LNAME)_$(M).a
-SHAREDLIB	= $(LIBDIR)/$(LNAME)_$(M).dylib.$(V).$(MV)	# ignored
-SHAREDLIBLN	= $(LIBDIR)/$(LNAME)_$(M).dylib
-INSTALL_DIR	= /opt/apogee
-TCLSRC = /opt/apogee/extern/tcl8.3.1/generic
-TKSRC = /opt/apogee/extern/tk8.3.1/generic                                   
+SHAREDLIB	= $(LIBDIR)/$(LNAME)_$(M).so.$(V).$(MV)	# ignored
+SHAREDLIBLN	= $(LIBDIR)/$(LNAME)_$(M).so
+INSTALL_DIR	= /usr/local/apogee
 
 .PRECIOUS:	$(STATICLIBRARY) $(LIBDIR)/$(LNAME)_$(M).so.$(V).$(MV) $(LIBDIR)/$(LNAME)_$(M).sa.$(V).$(MV)
 
@@ -31,7 +29,7 @@ TOBJ =	$(TSRC:%.c=%.o)
 # -R$(DEVHOME):$(GWCHOME)/lib -lsocket -lnsl
 # If you don't have TkPixmap tk leave out Xpm
 XPMLIBS = -lXpm 
-LDLIBS +=  -ltk8.3 $(XPMLIBS) -ltcl8.3 -lX11 -lm 
+LDLIBS +=  -ltk8.3 $(XPMLIBS) -ltcl8.3 -lX11 -lm -lcfitsio
 
 .KEEP_STATE:
 CC =	gcc
@@ -40,7 +38,7 @@ PRIVATEINCDIR	= $(DEVHOME)
 GUIINC          = /opt/apogee/include
 
 #CFLAGS 		+= -O -g -D_POSIX_C_SOURCE 
-CFLAGS 		+= -pipe -O2 -g -D$(MACHINE)  -DLINUX -Wall  -I$(TCLSRC) -I$(TKSRC)     
+CFLAGS 		+= -pipe -O2 -g -D$(MACHINE)  -DLINUX -Wall
 
 
 CPPFLAGS	= -I/opt/local/include -I$(INCDIR) -I$(GUIINC) -DVER=\"$(V).$(MV)\"
@@ -58,15 +56,12 @@ CSOURCE_ALL = $(LIBSOURCES) $(LIBDATA)
 STATICLIBDIR=Static
 SHAREDLIBDIR=Shared
 
-#CONFIGPIC		= -fPIC
-CONFIGPIC		=
-CONFIGSHAREDLIBLD	= g++ -dynamiclib -L/opt/local/lib -lcfitsio -o $(LNAME)_$(M).dylib.$(V).$(MV) $?
-#CONFIGSHAREDLIBLD	= g++ -dynamiclib libccd.dylib $?
+CONFIGPIC		= -fPIC
+CONFIGSHAREDLIBLD	= ld -shared -o $(LNAME)_$(M).so.$(V).$(MV) $?
 
 CONFIGTARGETS		= $(SHAREDLIB)
 
 CFLAGS		+= -DSVR4
-NSLLIB		= -lnsl
 
 all: Static Shared $(LIBDIR) $(CONFIGTARGETS) $(STATICLIBRARY) $(SHAREDLIBLN)
 #all: Shared $(LIBDIR) $(CONFIGTARGETS) $(SHAREDLIBLN)
@@ -126,9 +121,9 @@ install: $(STATICLIBRARY) $(SHAREDLIB) FORCE
 	cp $(STATICLIBRARY) $(INSTALL_DIR)/lib
 	cp $(SHAREDLIB) $(INSTALL_DIR)/lib
 	rm -f $(INSTALL_DIR)/lib/$(LNAME)_$(M).so
-	ln -s $(INSTALL_DIR)/lib/$(LNAME)_$(M).dylib.$(V).$(MV) $(INSTALL_DIR)/lib/$(LNAME)_$(M).so
+	ln -s $(INSTALL_DIR)/lib/$(LNAME)_$(M).so.$(V).$(MV) $(INSTALL_DIR)/lib/$(LNAME)_$(M).so
 	rm -f $(INSTALL_DIR)/lib/$(LNAME).so
-	ln -s $(INSTALL_DIR)/lib/$(LNAME)_$(M).dylib.$(V).$(MV) $(INSTALL_DIR)/lib/$(LNAME).so
+	ln -s $(INSTALL_DIR)/lib/$(LNAME)_$(M).so.$(V).$(MV) $(INSTALL_DIR)/lib/$(LNAME).so
 
 clean:
 	rm -rf Shared Static

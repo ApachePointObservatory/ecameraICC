@@ -1,5 +1,9 @@
 #!/bin/sh
-#/Users/shack/bin/apogee_usb_reset
-cd /opt/apogee/src/ecamera
-source .ENV
-/opt/local/bin/python ecamera.py 2>/dev/null 
+cd /home/arc/build/Ecamera/trunk/ecamera
+
+export NUMERIX=numpy
+
+#. ENV
+
+#pkill ecamera.py
+/bin/python ecamera.py 2>/tmp/ecamera.err

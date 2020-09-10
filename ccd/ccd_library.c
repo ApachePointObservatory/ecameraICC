@@ -10,7 +10,7 @@
 
 #include <sys/shm.h>
 
-#include "fitsio.h"
+#include <cfitsio/fitsio.h>
 
 /* typedef unsigned short *PDATA;  */
 typedef void *PDATA;  

@@ -1,0 +1,30 @@
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli.o libfli.c
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli-sys.o unix/libfli-sys.c
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli-debug.o unix/libfli-debug.c
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli-mem.o libfli-mem.c
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli-usb.o unix/libfli-usb.c
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli-usb-sys.o unix/linux/libfli-usb-sys.c
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli-parport.o unix/linux/libfli-parport.c
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli-serial.o unix/libfli-serial.c
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli-camera.o libfli-camera.c
+libfli-camera.c: In function ‘fli_camera_command’:
+libfli-camera.c:990:19: warning: variable ‘cam’ set but not used [-Wunused-but-set-variable]
+     flicamdata_t *cam;
+                   ^
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli-camera-parport.o libfli-camera-parport.c
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli-camera-usb.o libfli-camera-usb.c
+libfli-camera-usb.c: In function ‘fli_camera_usb_read_eeprom’:
+libfli-camera-usb.c:2938:7: warning: variable ‘r’ set but not used [-Wunused-but-set-variable]
+  long r = 0;
+       ^
+libfli-camera-usb.c: In function ‘fli_camera_usb_write_eeprom’:
+libfli-camera-usb.c:2994:7: warning: variable ‘r’ set but not used [-Wunused-but-set-variable]
+  long r = 0;
+       ^
+gcc -Wall -O2 -g  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104  -I/home/arc/build/Ecamera/trunk/fli/libfli-1.104/unix   -c -o libfli-filter-focuser.o libfli-filter-focuser.c
+libfli-filter-focuser.c: In function ‘fli_homedevice’:
+libfli-filter-focuser.c:1252:11: warning: variable ‘begin’ set but not used [-Wunused-but-set-variable]
+   clock_t begin;
+           ^
+ar -rus libfli.a libfli.o libfli-sys.o libfli-debug.o libfli-mem.o libfli-usb.o libfli-usb-sys.o libfli-parport.o libfli-serial.o libfli-camera.o libfli-camera-parport.o libfli-camera-usb.o libfli-filter-focuser.o
+ar: creating libfli.a

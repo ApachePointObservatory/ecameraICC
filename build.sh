@@ -1,20 +1,15 @@
 #!/bin/sh
-. .ENV
-port selfupdate
-port install cfitsio curl curl-ca-bundle py27-distribute python27 python_select readline swig swig-python
-port select --set python python27
-ln -sf /opt/local/bin/pip-2.7 /opt/local/bin/pip
 pushd .
 cd ccd
 make 
 make install
 make clean
 popd
-cd libusb
-./build.sh
-popd
-pip install pyfits
-pip install numpy
+#cd libusb
+#./build.sh
+#popd
+#pip install pyfits
+#pip install numpy
 #
 # If packages already installed, run these commands
 # instead:
