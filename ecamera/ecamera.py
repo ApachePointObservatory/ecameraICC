@@ -561,7 +561,7 @@ class ECamera:
 		hdr['CAMNAME'] = ('USB FLI Camera', 'Camera used for this image')
 		hdr['CAMID'] = (2)
 		hdr['CAMTEMP'] = (fli.getTemperature (self.fli_usb), 'degrees C')
-		hdr['DATE-OBS'] = (time.strftime ('%Y-%m-%d %H:%M:%SZ', time.gmtime (start_time)), 'TAI Date-Time CCD was read')
+		hdr['DATE-OBS'] = (time.strftime ('%Y-%m-%d %H:%M:%SZ', time.gmtime (start_time)), 'TAI time, start of integration')
 
 		hdu.writeto (filename)
 		del data, hdu, hdr
